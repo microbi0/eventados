@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowUpRight, Building2, CalendarDays, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
 import type { EventItem } from './types';
 import { formatSpan } from './dates';
 import { styleOf } from './categories';
@@ -336,11 +336,9 @@ export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Re
               {[e.address !== e.venue ? e.address : null, e.city, e.district && e.district !== e.city ? e.district : null].filter(Boolean).join(' · ')}
             </small>
           </Fact>
-          <Fact icon={Building2} label="Fonte">
-            {e.sourceName}
-          </Fact>
         </div>
         {e.description && <p className="desc">{e.description}</p>}
+        <p className="source-note">Fonte: {e.sourceName}</p>
         <div className="actions">
           <a className="btn primary" href={e.url} target="_blank" rel="noreferrer">
             Ver mais <ArrowUpRight size={18} />

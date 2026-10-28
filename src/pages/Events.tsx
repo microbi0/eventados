@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
 import { ALL, filterEvents } from '../filters';
@@ -14,6 +14,7 @@ export interface EventsState {
   cats: string[];
   setCats: (c: string[] | ((cur: string[]) => string[])) => void;
   query: string;
+  setQuery: (q: string) => void;
 }
 
 interface Props extends EventsState {
@@ -25,8 +26,8 @@ interface Props extends EventsState {
   sidebar: boolean;
 }
 
-// A pesquisa e o filtro de gratuitos vivem no header (App.tsx); aqui chegam já aplicados ou como `query`.
-export default function Events({ data, city, selected, onSelect, wide, sidebar, range, setRange, cats, setCats, query }: Props) {
+// O filtro de gratuitos vive no header (App.tsx) e chega já aplicado aos dados.
+export default function Events({ data, city, selected, onSelect, wide, sidebar, range, setRange, cats, setCats, query, setQuery }: Props) {
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [city, cats, range, query]);
 
@@ -52,6 +53,18 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
   const tagFor = (e: EventItem) => e.categories.find((c) => cats.includes(c)) ?? e.categories[0];
   const compact = !!selected && wide;
 
+  const searchBox = (
+    <label className="search">
+      <Search size={18} />
+      <input type="search" placeholder="Pesquisar evento, local, artista…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Pesquisar eventos" />
+      {query && (
+        <button onClick={() => setQuery('')} aria-label="Limpar pesquisa">
+          <X size={16} />
+        </button>
+      )}
+    </label>
+  );
+
   const visible = results.slice(0, limit);
   const groups: { day: string; items: typeof visible }[] = [];
   for (const r of visible) {
@@ -65,6 +78,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
       {/* ---------- coluna 1: tipos ---------- */}
       {sidebar && (
         <aside className="filters" aria-label="Filtros">
+          {searchBox}
           <div className="label-row">
             <p className="label">Tipo de evento</p>
             {cats.length > 0 && (
@@ -99,6 +113,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
               ))}
             </div>
           </div>
+          {!sidebar && searchBox}
           {!sidebar && (
             <div className="chips" aria-label="Tipo de evento">
               <CategoryChip id={ALL} label="Tudo" count={inScope.length} active={!cats.length} onClick={() => toggleCat(ALL)} />

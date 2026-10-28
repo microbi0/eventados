@@ -1,0 +1,70 @@
+# Recolhe os eventos uma vez por dia e publica a app + events.json no GitHub Pages.
+# A app Android lê o events.json publicado, por isso recebe eventos novos sem ser reinstalada.
+name: Atualizar eventos
+
+on:
+  schedule:
+    - cron: '30 4 * * *' # todos os dias às 04:30 UTC (madrugada em Portugal)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forçar recolha mesmo que a última tenha sido há menos de 20 h'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Nunca há duas recolhas em simultâneo.
+concurrency:
+  group: update-events
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      # Cache HTTP do scraper (páginas de detalhe, robots.txt, ETags) entre execuções.
+      - uses: actions/cache@v4
+        with:
+          path: .cache
+          key: scraper-cache-${{ github.run_id }}
+          restore-keys: scraper-cache-
+
+      # Parte do último events.json publicado: serve de reserva se uma fonte falhar
+      # e para o travão de "no máximo uma recolha a cada 20 h".
+      - name: Obter dados publicados
+        run: curl -fsSL "${{ steps.pages.outputs.base_url }}/data/events.json" -o public/data/events.json || echo "Sem dados anteriores"
+
+      - name: Recolher eventos
+        run: node scraper/index.mjs ${{ inputs.force && '--force' || '' }}
+
+      - name: Compilar app web
+        run: npm run build
+        env:
+          VITE_DATA_URL: ${{ steps.pages.outputs.base_url }}/data/events.json
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

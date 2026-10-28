@@ -1,0 +1,144 @@
+// Corre todas as fontes e escreve public/data/events.json.
+// Uso: node scraper/index.mjs [--out caminho] [--only id1,id2] [--force]
+// Os dados não precisam de ser em tempo real: por omissão recusa correr se a última recolha
+// tiver menos de MIN_HOURS_BETWEEN_RUNS horas, para não gastar recursos dos sites de origem.
+import { writeFile, mkdir, readFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
+import { stats } from './util.mjs';
+import { municipioAt, municipioByName } from './geo.mjs';
+import * as agendalx from './sources/agendalx.mjs';
+import { agendaPorto, viladoconde } from './sources/bundlr.mjs';
+import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
+import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia } from './sources/municipal.mjs';
+import { meoArena, rivoli, tnsj, coliseuPorto } from './sources/venues.mjs';
+
+// Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois as salas).
+// Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
+// Para adicionar uma plataforma: criar um módulo com { meta, scrape() } e juntá-lo aqui.
+const SOURCES = [
+  agendalx, agendaPorto, viladoconde, matosinhos, gaia, gondomar, maia, povoa, famalicao, odivelas, viana, aveiro,
+  superBockArena, saDaBandeira, coliseuPorto, rivoli, tnsj, ccb, meoArena,
+];
+const SOURCE_KIND = { superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue' };
+
+const arg = (name) => {
+  const i = process.argv.indexOf(name);
+  return i > -1 ? process.argv[i + 1] : null;
+};
+const OUT = resolve(arg('--out') ?? 'public/data/events.json');
+const ONLY = arg('--only')?.split(',');
+const FORCE = process.argv.includes('--force');
+const MIN_HOURS_BETWEEN_RUNS = Number(process.env.MIN_HOURS_BETWEEN_RUNS ?? 20);
+
+let previous = [];
+let lastRun = null;
+try {
+  const prev = JSON.parse(await readFile(OUT, 'utf8'));
+  previous = prev.events ?? [];
+  lastRun = prev.updatedAt ? new Date(prev.updatedAt) : null;
+} catch {
+  /* primeira execução */
+}
+
+const hoursSince = lastRun ? (Date.now() - lastRun.getTime()) / 3600_000 : Infinity;
+if (!FORCE && !ONLY && hoursSince < MIN_HOURS_BETWEEN_RUNS) {
+  console.log(`Última recolha há ${hoursSince.toFixed(1)} h (< ${MIN_HOURS_BETWEEN_RUNS} h). Nada a fazer; use --force para forçar.`);
+  process.exit(0);
+}
+
+async function run(src) {
+  const started = Date.now();
+  try {
+    const list = await src.scrape();
+    console.log(`✔ ${src.meta.name}: ${list.length} eventos (${((Date.now() - started) / 1000).toFixed(1)} s)`);
+    return { list, info: { ...src.meta, count: list.length, ok: true } };
+  } catch (err) {
+    // Se uma fonte falhar, mantemos os eventos da última recolha bem-sucedida.
+    const kept = previous.filter((e) => e.source === src.meta.id);
+    console.error(`✖ ${src.meta.name}: ${err.message ?? err} (mantidos ${kept.length} eventos anteriores)`);
+    return { list: kept, info: { ...src.meta, count: kept.length, ok: false, error: String(err.message ?? err) } };
+  }
+}
+
+// Fontes em paralelo (servidores diferentes); cada uma faz os seus pedidos em sequência.
+const selected = SOURCES.filter((s) => !ONLY || ONLY.includes(s.meta.id));
+const results = await Promise.all(selected.map(run));
+if (ONLY) {
+  // Execução parcial: mantém as restantes fontes do ficheiro anterior.
+  const kept = previous.filter((e) => !ONLY.includes(e.source));
+  results.push({ list: kept, info: null });
+}
+
+// Concelho e distrito: pelas coordenadas quando existem; senão pelo nome indicado pela fonte.
+function locate(e) {
+  const m = (e.lat != null && e.lon != null && municipioAt(e.lat, e.lon)) || municipioByName(e.city);
+  if (m) {
+    e.city = m.name;
+    e.district = m.district;
+  }
+  return e;
+}
+
+// Sessões repetidas do mesmo evento (mesma fonte, título e local) passam a um só evento com várias datas.
+function collapseSessions(list) {
+  const groups = new Map();
+  for (const e of list) {
+    const k = `${e.source}|${slugify(e.title)}|${slugify(e.venue ?? '')}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  return [...groups.values()].map((g) => {
+    if (g.length === 1) return g[0];
+    g.sort((a, b) => a.startDate.localeCompare(b.startDate));
+    const single = g.every((e) => e.startDate === e.endDate);
+    const times = new Set(g.map((e) => e.timesText));
+    return {
+      ...g[0],
+      endDate: g.reduce((m, e) => (e.endDate > m ? e.endDate : m), g[0].endDate),
+      dates: single ? [...new Set(g.map((e) => e.startDate))] : null,
+      timesText: times.size === 1 ? g[0].timesText : 'vários horários',
+      categories: [...new Set(g.flatMap((e) => e.categories))],
+    };
+  });
+}
+
+const isPrivate = (e) => e.rawCategories.length > 0 && e.rawCategories.every((c) => PRIVATE_CATEGORIES.has(slugify(c)));
+
+const key = (e) => `${slugify(e.title).replace(/[^a-z0-9]+/g, ' ').trim()}|${e.startDate}|${e.city}`;
+const byKey = new Map();
+for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !isPrivate(e))).map(locate)) {
+  if (!e.city || !e.startDate || !e.title) continue;
+  const k = key(e);
+  const prev = byKey.get(k);
+  if (!prev) {
+    byKey.set(k, e);
+    continue;
+  }
+  // Duplicado: fica o da fonte prioritária, com o link de bilhetes/outra fonte como alternativa.
+  prev.alsoAt ??= [];
+  prev.alsoAt.push({ name: e.sourceName, url: e.tickets ?? e.url });
+  prev.image ??= e.image;
+  prev.price ??= e.price;
+  prev.lat ??= e.lat;
+  prev.lon ??= e.lon;
+  prev.venue ??= e.venue;
+}
+
+const events = [...byKey.values()].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, 'pt'));
+const sources = results.map((r) => r.info).filter(Boolean).map((s) => ({ ...s, kind: SOURCE_KIND[s.id] ?? 'agenda' }));
+if (ONLY) {
+  try {
+    const prevSources = JSON.parse(await readFile(OUT, 'utf8')).sources ?? [];
+    sources.push(...prevSources.filter((s) => !ONLY.includes(s.id)));
+  } catch {
+    /* sem fontes anteriores */
+  }
+}
+
+await mkdir(dirname(OUT), { recursive: true });
+await writeFile(OUT, JSON.stringify({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, events }));
+const cities = new Set(events.map((e) => e.city));
+console.log(`→ ${events.length} eventos em ${cities.size} concelhos escritos em ${OUT}`);
+console.log(`  pedidos HTTP: ${stats.requests} · respostas em cache: ${stats.cacheHits} · não modificadas (304): ${stats.notModified} · bloqueados por robots.txt: ${stats.blockedByRobots}`);
+if (sources.every((s) => !s.ok)) process.exit(1);

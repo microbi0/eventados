@@ -1,0 +1,10 @@
+node_modules
+dist
+android/app/build
+android/.gradle
+android/local.properties
+.DS_Store
+.cache
+releases
+*.apk
+tsconfig.tsbuildinfo

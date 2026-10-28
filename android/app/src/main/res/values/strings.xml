@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Eventados</string>
+    <string name="title_activity_main">Eventados</string>
+    <string name="package_name">pt.eventados.app</string>
+    <string name="custom_url_scheme">pt.eventados.app</string>
+</resources>

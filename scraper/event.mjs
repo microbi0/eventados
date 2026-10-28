@@ -2,6 +2,13 @@
 import { classify, mapCategory, refineStage } from './categories.mjs';
 import { decodeEntities, splitDateTime, stripHtml } from './util.mjs';
 
+// Coordenadas só se estiverem em Portugal (continente, Açores, Madeira); algumas fontes usam 0,0 quando não sabem.
+function coords(lat, lon) {
+  const la = lat != null && lat !== '' ? Number(lat) : NaN;
+  const lo = lon != null && lon !== '' ? Number(lon) : NaN;
+  return la > 29 && la < 43 && lo > -32 && lo < -6 ? { lat: la, lon: lo } : { lat: null, lon: null };
+}
+
 export function makeEvent(meta, e) {
   const fromSource = [...new Set((e.rawCategories ?? []).map(mapCategory).filter(Boolean))];
   const categories = fromSource.length ? fromSource : classify(e.title, e.subtitle, e.venue);
@@ -27,8 +34,7 @@ export function makeEvent(meta, e) {
     district: null,
     venue: e.venue ? stripHtml(e.venue) || null : null,
     address: e.address ? stripHtml(e.address) || null : null,
-    lat: e.lat != null && e.lat !== '' ? Number(e.lat) : null,
-    lon: e.lon != null && e.lon !== '' ? Number(e.lon) : null,
+    ...coords(e.lat, e.lon),
     startDate: e.startDate,
     endDate: e.endDate && e.endDate >= e.startDate ? e.endDate : e.startDate,
     dates: e.dates ?? null,

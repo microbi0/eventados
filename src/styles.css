@@ -514,7 +514,8 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .home-top.dark .home-backdrop::after { box-shadow: inset 0 0 0 100vmax rgb(0 0 0 / 0.18); }
 .home-top.light .home-backdrop::after { box-shadow: inset 0 0 0 100vmax rgb(255 255 255 / 0.22); }
 .home-top .big-search { border-color: transparent; color: var(--text); }
-.home-top .spot-viewport { box-shadow: 0 30px 80px rgb(0 0 0 / 0.25); }
+/* Na Home o slider não tem fundo próprio: os destaques ficam por cima do fundo desfocado do topo. */
+.home-top .spot-bg, .home-top .spot-ramp { display: none; }
 
 .place-btn {
   display: inline-flex;
@@ -602,7 +603,7 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .spotlight { margin: 8px 0 12px; animation: rise 0.6s var(--ease) both 180ms; }
 .spot-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .spot-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: clamp(24px, 2.4vw, 32px); font-weight: 700; }
-.spot-viewport { position: relative; overflow: hidden; border-radius: 32px; touch-action: pan-y; background: #222; }
+.spot-viewport { position: relative; overflow: hidden; touch-action: pan-y; }
 .spot-track { display: flex; transition: transform 0.9s var(--ease); }
 
 .spot {
@@ -612,7 +613,6 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   position: relative;
   flex: 0 0 100%;
   height: clamp(440px, 62vh, 580px);
-  overflow: hidden;
   color: var(--ink);
   isolation: isolate;
 }
@@ -638,7 +638,7 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   align-items: center;
   gap: clamp(24px, 4vw, 64px);
   height: 100%;
-  padding: clamp(18px, 2.6vw, 36px) clamp(64px, 6vw, 96px) clamp(48px, 5vw, 64px) clamp(18px, 2.6vw, 36px);
+  padding: 12px clamp(64px, 6vw, 96px) clamp(48px, 5vw, 64px);
 }
 .spot-media {
   position: relative;
@@ -775,25 +775,10 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   .map-wrap { height: 52vh; }
   .map-list { overflow: visible; }
 }
-.leaflet-container { font: inherit; background: var(--surface-2); }
-/* Mapa base em tons de cinzento para os marcadores coloridos sobressaírem. */
-.tiles { filter: grayscale(1) contrast(0.9) brightness(1.05); }
-@media (prefers-color-scheme: dark) { .tiles { filter: grayscale(1) invert(0.92) contrast(0.85); } }
-.pin { background: none; border: 0; }
-.pin-dot {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  border: 2.5px solid #fff;
-  box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
-  transition: transform 0.25s var(--ease);
-  animation: drop 0.45s var(--ease) both;
-  animation-delay: calc(var(--i, 0) * 30ms);
-}
-.pin:hover .pin-dot, .pin.hot .pin-dot { transform: scale(1.35); }
-.pin.hot { z-index: 1000 !important; }
+.maplibregl-map { font: inherit; }
+.maplibregl-ctrl-group { border-radius: 14px !important; box-shadow: 0 4px 14px rgb(0 0 0 / 0.1) !important; }
+.maplibregl-ctrl-attrib { font-size: 11px; }
+.focus-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: var(--pill); background: var(--text); color: var(--bg); font-size: 13px; }
 
 /* ---------- Sobre ---------- */
 .about { max-width: 980px; margin: 0 auto; padding: 0 var(--gutter) calc(env(safe-area-inset-bottom) + 100px); }

@@ -70,7 +70,7 @@ npm run android:open      # abre no Android Studio (Run ▶ ou Build › Build A
 ```
 
 Para a app instalada receber eventos novos sem ser reinstalada, compile com o URL dos dados
-publicados: `VITE_DATA_URL=https://<utilizador>.github.io/<repo>/data/events.json npm run android:sync`.
+publicados: `VITE_DATA_URL=https://eventados.com/data/events.json npm run android:sync`.
 Sem essa variável, a app usa o `events.json` incluído na build.
 
 > **Nota:** esta pasta está num disco de rede (SMB) que não suporta symlinks nem os ficheiros de

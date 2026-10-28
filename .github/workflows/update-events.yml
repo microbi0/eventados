@@ -74,7 +74,8 @@ jobs:
       - name: Compilar app web
         run: npm run build
         env:
-          VITE_DATA_URL: ${{ steps.pages.outputs.base_url }}/data/events.json
+          # Endereço público fixo (domínio próprio, sempre em HTTPS) para a app Android ir buscar os dados.
+          VITE_DATA_URL: https://eventados.com/data/events.json
 
       - uses: actions/upload-pages-artifact@v3
         with:

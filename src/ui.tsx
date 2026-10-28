@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowUpRight, CalendarDays, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, CalendarPlus, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
 import type { EventItem } from './types';
-import { formatSpan } from './dates';
+import { formatSpan, startMinutes } from './dates';
 import { styleOf } from './categories';
 import { ALL, normalize } from './filters';
 
@@ -276,6 +276,40 @@ export function Sheet({ className, label, onClose, children }: { className: stri
   );
 }
 
+// Link do Google Calendar com o evento preenchido (o utilizador só carrega em "Guardar").
+// Com hora conhecida: início a essa hora e 2 h de duração; sem hora: dia(s) inteiro(s).
+export function googleCalendarUrl(e: EventItem): string {
+  const day = e.dates?.[0] ?? e.startDate;
+  const ymd = (s: string) => s.replace(/-/g, '');
+  const minutes = startMinutes(e);
+  let dates: string;
+  if (minutes < 24 * 60) {
+    const at = (m: number) => `${String(Math.floor(m / 60) % 24).padStart(2, '0')}${String(m % 60).padStart(2, '0')}00`;
+    const endDay = minutes + 120 >= 24 * 60 ? nextDay(day) : day;
+    dates = `${ymd(day)}T${at(minutes)}/${ymd(endDay)}T${at((minutes + 120) % (24 * 60))}`;
+  } else {
+    // Datas de fim exclusivas no formato do Google.
+    const last = e.dates?.length ? e.dates[0] : e.endDate;
+    dates = `${ymd(day)}/${ymd(nextDay(last))}`;
+  }
+  const details = [e.subtitle, e.description?.slice(0, 600), e.price ? `Preço: ${e.price}` : null, `Mais informação: ${e.url}`].filter(Boolean).join('\n\n');
+  const params = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: e.title,
+    dates,
+    ctz: 'Europe/Lisbon',
+    details,
+    location: [e.venue, e.address, e.city].filter(Boolean).join(', '),
+  });
+  return `https://calendar.google.com/calendar/render?${params}`;
+}
+
+function nextDay(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  const t = new Date(Date.UTC(y, m - 1, d + 1));
+  return t.toISOString().slice(0, 10);
+}
+
 function Fact({ icon: Icon, label, wide, children }: { icon: typeof MapPin; label: string; wide?: boolean; children: ReactNode }) {
   return (
     <div className={wide ? 'fact wide' : 'fact'}>
@@ -348,6 +382,9 @@ export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Re
               <Ticket size={18} /> {t.name}
             </a>
           ))}
+          <a className="btn" href={googleCalendarUrl(e)} target="_blank" rel="noreferrer">
+            <CalendarPlus size={18} /> Google Calendar
+          </a>
           {mapsUrl && (
             <a className="btn" href={mapsUrl} target="_blank" rel="noreferrer">
               <Navigation size={18} /> Como chegar

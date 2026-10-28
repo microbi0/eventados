@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Gift, Search, SlidersHorizontal, X } from 'lucide-react';
+import { CalendarDays, SlidersHorizontal } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
 import { ALL, filterEvents } from '../filters';
@@ -13,10 +13,7 @@ export interface EventsState {
   setRange: (r: DateRange) => void;
   cats: string[];
   setCats: (c: string[] | ((cur: string[]) => string[])) => void;
-  freeOnly: boolean;
-  setFreeOnly: (v: boolean) => void;
   query: string;
-  setQuery: (q: string) => void;
 }
 
 interface Props extends EventsState {
@@ -28,12 +25,13 @@ interface Props extends EventsState {
   sidebar: boolean;
 }
 
-export default function Events({ data, city, selected, onSelect, wide, sidebar, range, setRange, cats, setCats, freeOnly, setFreeOnly, query, setQuery }: Props) {
+// A pesquisa e o filtro de gratuitos vivem no header (App.tsx); aqui chegam já aplicados ou como `query`.
+export default function Events({ data, city, selected, onSelect, wide, sidebar, range, setRange, cats, setCats, query }: Props) {
   const [limit, setLimit] = useState(PAGE);
-  useEffect(() => setLimit(PAGE), [city, cats, range, freeOnly, query]);
+  useEffect(() => setLimit(PAGE), [city, cats, range, query]);
 
   // Antes do filtro de tipo (para as contagens por tipo).
-  const inScope = useMemo(() => filterEvents(data.events, { city, range, freeOnly, query }), [data, city, range, freeOnly, query]);
+  const inScope = useMemo(() => filterEvents(data.events, { city, range, query }), [data, city, range, query]);
   const results = useMemo(() => (cats.length ? inScope.filter(({ e }) => e.categories.some((c) => cats.includes(c))) : inScope), [inScope, cats]);
   const counts = useMemo(() => {
     const c: Record<string, number> = {};
@@ -47,7 +45,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
       const bar = el.parentElement!;
       bar.scrollTo({ left: Math.max(0, el.offsetLeft - bar.clientWidth / 2 + el.clientWidth / 2), behavior: 'smooth' });
     }
-  }, [cats, range, freeOnly]);
+  }, [cats, range]);
 
   const toggleCat = (id: string) => setCats((cur) => (id === ALL ? [] : cur.includes(id) ? cur.filter((c) => c !== id) : [...cur, id]));
   const visibleCats = Object.entries(data.categories).filter(([id]) => counts[id] || cats.includes(id));
@@ -100,23 +98,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                 </button>
               ))}
             </div>
-            <button className={freeOnly ? 'switch on' : 'switch'} role="switch" aria-checked={freeOnly} onClick={() => setFreeOnly(!freeOnly)}>
-              <span className="switch-track">
-                <span className="switch-knob" />
-              </span>
-              <Gift size={16} />
-              Só gratuitos
-            </button>
           </div>
-          <label className="search">
-            <Search size={18} />
-            <input type="search" placeholder="Pesquisar evento, local, artista…" value={query} onChange={(e) => setQuery(e.target.value)} />
-            {query && (
-              <button onClick={() => setQuery('')} aria-label="Limpar pesquisa">
-                <X size={16} />
-              </button>
-            )}
-          </label>
           {!sidebar && (
             <div className="chips" aria-label="Tipo de evento">
               <CategoryChip id={ALL} label="Tudo" count={inScope.length} active={!cats.length} onClick={() => toggleCat(ALL)} />
@@ -142,7 +124,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         {!results.length && <div className="state">Nenhum evento com estes filtros.</div>}
 
         {/* key muda com os filtros para reanimar a lista */}
-        <div key={`${city}|${range}|${cats.join()}|${freeOnly}|${compact}`} className="results">
+        <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
           {groups.map((g, gi) => (
             <section key={g.day} className="day">
               {range !== 'today' && range !== 'tomorrow' && (

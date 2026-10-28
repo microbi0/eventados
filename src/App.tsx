@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { House, Info, LayoutList, Map as MapIcon, MapPin, X } from 'lucide-react';
+import { Gift, House, Info, LayoutList, Map as MapIcon, MapPin, Search, X } from 'lucide-react';
 import type { EventItem, EventsData } from './types';
 import { loadEvents } from './data';
 import type { DateRange } from './dates';
@@ -77,6 +77,34 @@ export default function App() {
   if (!data) return <div className="state"><span className="loader" />A carregar eventos…</div>;
 
   const cityLabel = city === ALL ? 'Todo o país' : city;
+  // "Só gratuitos" vale para a app inteira (Home, Eventos e Mapa).
+  const shown = freeOnly ? { ...data, events: data.events.filter((e) => e.isFree) } : data;
+  // A pesquisa do header leva à página Eventos, onde os resultados aparecem.
+  const onSearch = (v: string) => {
+    setQuery(v);
+    if (v && page !== 'eventos') go('eventos');
+  };
+  const headerTools = (
+    <div className="header-tools">
+      <label className="search header-search">
+        <Search size={18} />
+        <input type="search" placeholder="Pesquisar evento, local, artista…" value={query} onChange={(e) => onSearch(e.target.value)} aria-label="Pesquisar eventos" />
+        {query && (
+          <button onClick={() => setQuery('')} aria-label="Limpar pesquisa">
+            <X size={16} />
+          </button>
+        )}
+      </label>
+      <button className={freeOnly ? 'switch on' : 'switch'} role="switch" aria-checked={freeOnly} onClick={() => setFreeOnly(!freeOnly)}>
+        <span className="switch-track">
+          <span className="switch-knob" />
+        </span>
+        <Gift size={16} />
+        <span className="switch-label">Só gratuitos</span>
+      </button>
+    </div>
+  );
+
   // Na página Eventos em ecrã largo o detalhe vive na 3.ª coluna; nos outros casos abre por cima.
   const detailInColumn = page === 'eventos' && wide;
 
@@ -97,6 +125,7 @@ export default function App() {
               ))}
             </nav>
           )}
+          {sidebar && headerTools}
           {sidebar ? (
             <CityDropdown cities={cities} total={data.events.length} current={city} label={cityLabel} onPick={pickCity} />
           ) : (
@@ -106,12 +135,13 @@ export default function App() {
             </button>
           )}
         </div>
+        {!sidebar && <div className="bar bar-tools">{headerTools}</div>}
       </header>
 
       <div key={page} className="page">
         {page === 'home' && (
           <Home
-            data={data}
+            data={shown}
             city={city}
             onSelect={setSelected}
             onExplore={(o) => {
@@ -125,7 +155,7 @@ export default function App() {
         )}
         {page === 'eventos' && (
           <Events
-            data={data}
+            data={shown}
             city={city}
             selected={selected}
             onSelect={setSelected}
@@ -135,13 +165,10 @@ export default function App() {
             setRange={setRange}
             cats={cats}
             setCats={setCats}
-            freeOnly={freeOnly}
-            setFreeOnly={setFreeOnly}
             query={query}
-            setQuery={setQuery}
           />
         )}
-        {page === 'mapa' && <MapPage data={data} city={city} selected={selected} onSelect={setSelected} />}
+        {page === 'mapa' && <MapPage data={shown} city={city} selected={selected} onSelect={setSelected} />}
         {page === 'sobre' && <About data={data} />}
       </div>
 

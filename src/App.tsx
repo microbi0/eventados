@@ -80,11 +80,9 @@ export default function App() {
   // "Só gratuitos" vale para a app inteira (Home, Eventos e Mapa).
   const shown = freeOnly ? { ...data, events: data.events.filter((e) => e.isFree) } : data;
   const freeToggle = (
-    <button className={freeOnly ? 'switch on' : 'switch'} role="switch" aria-checked={freeOnly} onClick={() => setFreeOnly(!freeOnly)}>
-      <span className="switch-track">
-        <span className="switch-knob" />
-      </span>
-      <span className="switch-label">Grátis</span>
+    <button className={freeOnly ? 'free-toggle on' : 'free-toggle'} role="switch" aria-checked={freeOnly} aria-label="Só eventos grátis" onClick={() => setFreeOnly(!freeOnly)}>
+      <span className="free-toggle-label">Grátis</span>
+      <span className="free-toggle-knob" />
     </button>
   );
 

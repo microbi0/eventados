@@ -11,16 +11,25 @@ import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
 import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia } from './sources/municipal.mjs';
-import { meoArena, rivoli, tnsj, coliseuPorto } from './sources/venues.mjs';
+import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca } from './sources/venues.mjs';
+import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 
-// Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois as salas).
+// Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois regionais e salas).
 // Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
 // Para adicionar uma plataforma: criar um módulo com { meta, scrape() } e juntá-lo aqui.
 const SOURCES = [
   agendalx, agendaPorto, viladoconde, matosinhos, gaia, gondomar, maia, povoa, famalicao, odivelas, viana, aveiro,
+  turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira,
   superBockArena, saDaBandeira, coliseuPorto, rivoli, tnsj, ccb, meoArena,
+  campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor,
+  jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca,
 ];
-const SOURCE_KIND = { superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue' };
+const SOURCE_KIND = {
+  superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue',
+  campopequeno: 'venue', coliseulisboa: 'venue', gulbenkian: 'venue', tivolibbva: 'venue', ccl: 'venue', fil: 'venue', exponor: 'venue',
+  jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue',
+  turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',
+};
 
 const arg = (name) => {
   const i = process.argv.indexOf(name);

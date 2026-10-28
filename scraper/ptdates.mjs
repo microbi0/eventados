@@ -10,9 +10,15 @@ const MONTHS = {
 const pad = (n) => String(n).padStart(2, '0');
 
 export function parsePtDateRange(text, today = new Date()) {
-  const s = slugify(text).replace(/ /g, ' ');
+  const s = slugify(text)
+    .replace(/\b\d{1,2}h\d{0,2}\b/gi, ' ')
+    .replace(/[,;]/g, ' ')
+    .replace(/ /g, ' ');
   const iso = [...s.matchAll(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/g)].map((m) => `${m[1]}-${pad(m[2])}-${pad(m[3])}`);
   if (iso.length) return { start: iso[0], end: iso[iso.length - 1] };
+
+  const dmy = [...s.matchAll(/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/g)].map((m) => `${m[3]}-${pad(m[2])}-${pad(m[1])}`);
+  if (dmy.length) return { start: dmy[0], end: dmy[dmy.length - 1] };
 
   // Tokens: dia [mês] [ano]
   const parts = [...s.matchAll(/(\d{1,2})(?:\s*(?:de\s+)?([a-z]{3,9})\.?)?(?:\s*(?:de\s+)?(\d{4}))?/g)]

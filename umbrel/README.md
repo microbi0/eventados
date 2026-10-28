@@ -2,7 +2,7 @@
 
 O AgendaLX e o TNSJ estão atrás da Cloudflare, que bloqueia pedidos vindos de centros de dados
 (GitHub Actions, alojamentos). A recolha diária corre por isso num Umbrel em casa e envia o
-`events.json` para o ramo `data`; o GitHub Actions publica o site quando esse ramo muda.
+`events.json` para o ramo `data`; a publicação agendada do GitHub Actions (04:30 UTC) usa esses dados.
 
 Instalação (em `~/eventados-sync` no Umbrel):
 

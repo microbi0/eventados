@@ -13,7 +13,7 @@ scraper/ (Node, 1×/dia)  ──►  public/data/events.json  ──►  app web
 
 - A app **nunca** contacta as fontes: só lê o `events.json` já gerado.
 - A recolha diária corre num **Umbrel em casa** (04:00, hora de Lisboa) e envia o `events.json` para o
-  ramo `data`; o GitHub Actions publica o site quando esse ramo muda. Motivo: o AgendaLX e o TNSJ estão
+  ramo `data`; a publicação agendada do GitHub (04:30 UTC) usa esses dados. Motivo: o AgendaLX e o TNSJ estão
   atrás da Cloudflare, que bloqueia pedidos vindos de centros de dados. Ver [umbrel/README.md](umbrel/README.md).
 - O GitHub Actions continua agendado (04:30 UTC) como reserva; a recolha corre no máximo uma vez a cada 20 h.
 

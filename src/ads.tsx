@@ -15,16 +15,17 @@ declare global {
  * - VITE_GOOGLE_ADS_SLOT_EVENTS: ID do bloco de anúncios para os cartões entre eventos
  */
 export const ADS_CONFIG = {
-  client: (import.meta.env.VITE_GOOGLE_ADS_CLIENT as string) || 'ca-pub-XXXXXXXXXXXXXXXX',
+  client: (import.meta.env.VITE_GOOGLE_ADS_CLIENT as string) || 'ca-pub-1904724100833544',
   slots: {
-    homeBanner: (import.meta.env.VITE_GOOGLE_ADS_SLOT_HOME as string) || '1234567890',
-    eventsFeed: (import.meta.env.VITE_GOOGLE_ADS_SLOT_EVENTS as string) || '0987654321',
+    homeBanner: (import.meta.env.VITE_GOOGLE_ADS_SLOT_HOME as string) || '',
+    eventsFeed: (import.meta.env.VITE_GOOGLE_ADS_SLOT_EVENTS as string) || '',
   },
-  // Ativa modo teste/demonstração quando não há um client ID real configurado
-  isTestMode:
-    import.meta.env.DEV ||
-    !import.meta.env.VITE_GOOGLE_ADS_CLIENT ||
-    import.meta.env.VITE_GOOGLE_ADS_CLIENT.includes('XXXX'),
+  // Se ainda não tiverem sido configurados IDs de bloco específicos (slots),
+  // mantém o layout visual preparado e previne erros no adsbygoogle.push
+  hasConfiguredSlots: Boolean(
+    import.meta.env.VITE_GOOGLE_ADS_SLOT_HOME || import.meta.env.VITE_GOOGLE_ADS_SLOT_EVENTS
+  ),
+  isTestMode: import.meta.env.DEV,
 };
 
 /**
@@ -62,7 +63,7 @@ export function GoogleAdSlot({ slot, format = 'auto', layout, layoutKey, classNa
   useLoadAdSenseScript();
 
   useEffect(() => {
-    if (ADS_CONFIG.isTestMode) return;
+    if (ADS_CONFIG.isTestMode || !slot) return;
     try {
       if (typeof window !== 'undefined' && adRef.current) {
         // Evita chamadas duplicadas
@@ -77,7 +78,7 @@ export function GoogleAdSlot({ slot, format = 'auto', layout, layoutKey, classNa
     }
   }, [slot]);
 
-  if (ADS_CONFIG.isTestMode) {
+  if (ADS_CONFIG.isTestMode || !slot) {
     return null;
   }
 
@@ -100,6 +101,8 @@ export function GoogleAdSlot({ slot, format = 'auto', layout, layoutKey, classNa
  * 1. Banner da Home (entre categorias e secções)
  */
 export function HomeAdBanner() {
+  const hasSlot = Boolean(ADS_CONFIG.slots.homeBanner);
+
   return (
     <section className="home-ad-banner" aria-label="Espaço publicitário">
       <div className="home-ad-header">
@@ -110,10 +113,12 @@ export function HomeAdBanner() {
       </div>
 
       <div className="home-ad-content">
-        <GoogleAdSlot slot={ADS_CONFIG.slots.homeBanner} format="horizontal" className="home-ad-ins" />
+        {hasSlot && (
+          <GoogleAdSlot slot={ADS_CONFIG.slots.homeBanner} format="horizontal" className="home-ad-ins" />
+        )}
 
-        {/* Pré-visualização elegante quando em modo teste ou sem anúncios servidos */}
-        {ADS_CONFIG.isTestMode && (
+        {/* Pré-visualização elegante quando em modo teste ou sem bloco específico atribuído */}
+        {(!hasSlot || ADS_CONFIG.isTestMode) && (
           <div className="ad-demo-banner">
             <div className="ad-demo-icon">
               <Sparkles size={24} />
@@ -137,6 +142,8 @@ export function HomeAdBanner() {
  * 2. Cartão de Anúncio entre os eventos (idêntico visualmente a um EventCard)
  */
 export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?: number }) {
+  const hasSlot = Boolean(ADS_CONFIG.slots.eventsFeed);
+
   if (compact) {
     // Formato Linha (compacto quando o detalhe lateral está aberto)
     return (
@@ -158,7 +165,9 @@ export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?:
           <p className="row-meta">
             <span>Destaque promovido para eventos, cultura e lazer</span>
           </p>
-          <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layout="in-article" />
+          {hasSlot && (
+            <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layout="in-article" />
+          )}
         </div>
       </article>
     );
@@ -177,8 +186,10 @@ export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?:
           </div>
         </div>
 
-        {/* Injeção real do AdSense */}
-        <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layoutKey="-fb+5w+4e-db+86" className="ad-card-ins" />
+        {/* Injeção real do AdSense quando o bloco estiver definido */}
+        {hasSlot && (
+          <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layoutKey="-fb+5w+4e-db+86" className="ad-card-ins" />
+        )}
       </div>
 
       <div className="body">

@@ -15,13 +15,44 @@ export interface Filters {
   categories?: string[];
 }
 
-export const matchesQuery = (e: EventItem, q: string) =>
-  normalize(`${e.title} ${e.subtitle ?? ''} ${e.venue ?? ''} ${e.city} ${e.rawCategories.join(' ')}`).includes(q);
+// Palavras do caminho de um endereço: ".../evento/optimista-ceptico-diogo-bataguas-105165" → "optimista ceptico diogo bataguas".
+// Os links de bilhetes trazem muitas vezes o nome do artista, que nem sempre está no título.
+const urlWords = (u: string | null | undefined) => {
+  if (!u) return '';
+  try {
+    return decodeURIComponent(new URL(u).pathname).replace(/[-_/.]+/g, ' ').replace(/\b\d+\b/g, ' ');
+  } catch {
+    return '';
+  }
+};
+
+// Texto pesquisável de cada evento (calculado uma vez).
+const searchText = new WeakMap<EventItem, string>();
+function haystack(e: EventItem): string {
+  let t = searchText.get(e);
+  if (t == null) {
+    t = normalize(
+      [e.title, e.subtitle, e.venue, e.city, e.address, e.description, e.sourceName, e.rawCategories.join(' '), urlWords(e.url), urlWords(e.tickets), ...(e.alsoAt ?? []).map((a) => urlWords(a.url))]
+        .filter(Boolean)
+        .join(' '),
+    );
+    searchText.set(e, t);
+  }
+  return t;
+}
+
+// Todas as palavras da pesquisa têm de aparecer (em qualquer ordem, sem acentos).
+export const matchesQuery = (e: EventItem, q: string) => {
+  const words = q.split(/\s+/).filter(Boolean);
+  const text = haystack(e);
+  return words.every((w) => text.includes(w));
+};
 
 // Eventos que passam os filtros, com a data em que acontecem dentro do período, ordenados.
+// Com pesquisa escrita, procura em todas as datas futuras (quem procura um artista quer ver todas as datas).
 export function filterEvents(events: EventItem[], f: Filters): Hit[] {
-  const [from, to] = rangeBounds(f.range);
   const q = normalize((f.query ?? '').trim());
+  const [from, to] = rangeBounds(q ? 'all' : f.range);
   const out: Hit[] = [];
   for (const e of events) {
     if (f.city !== ALL && e.city !== f.city) continue;

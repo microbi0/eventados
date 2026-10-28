@@ -257,6 +257,7 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   max-width: max-content;
 }
 .segmented::-webkit-scrollbar { display: none; }
+.segmented.dim { opacity: 0.45; transition: opacity 0.3s var(--ease); }
 .segmented button {
   display: inline-flex;
   align-items: center;

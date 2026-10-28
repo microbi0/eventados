@@ -104,7 +104,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
       <main className="list-col">
         <section className="hero">
           <div className="when-bar">
-            <div className="segmented" role="tablist" aria-label="Quando">
+            <div className={query.trim() ? 'segmented dim' : 'segmented'} role="tablist" aria-label="Quando" title={query.trim() ? 'A pesquisa procura em todas as datas' : undefined}>
               {DATE_RANGES.map((r) => (
                 <button key={r.id} role="tab" aria-selected={range === r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
                   {r.label}
@@ -125,6 +125,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
           <p className="summary">
             <SlidersHorizontal size={15} />
             {results.length} {results.length === 1 ? 'evento' : 'eventos'}
+            {query.trim() && <span className="summary-cat">em todas as datas</span>}
             {cats.map((c) => {
               const I = styleOf(c).icon;
               return (
@@ -142,7 +143,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
           {groups.map((g, gi) => (
             <section key={g.day} className="day">
-              {range !== 'today' && range !== 'tomorrow' && (
+              {(query.trim() || (range !== 'today' && range !== 'tomorrow')) && (
                 <h2 style={{ ['--i' as string]: Math.min(gi, 6) }}>
                   <CalendarDays size={18} />
                   {formatDay(g.day)}

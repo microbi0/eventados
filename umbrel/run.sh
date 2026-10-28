@@ -19,8 +19,9 @@ git fetch --quiet origin main
 git reset --quiet --hard origin/main
 
 # Parte dos últimos dados enviados (reserva se uma fonte falhar e travão das 20 h).
+# (o clone só segue "main", por isso o ramo "data" é lido através de FETCH_HEAD)
 if git fetch --quiet origin data 2>/dev/null; then
-  git show origin/data:events.json > public/data/events.json
+  git show FETCH_HEAD:events.json > public/data/events.json
 fi
 
 node scraper/index.mjs "$@"

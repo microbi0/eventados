@@ -21,6 +21,7 @@
   --logo: 'Styro', 'Switzer', system-ui, sans-serif;
   --display: 'Gabarito', 'Switzer', system-ui, sans-serif;
   --free: #c9f27a;
+  --glass: rgb(255 255 255 / 0.68);
   color-scheme: light;
 }
 
@@ -34,6 +35,7 @@
     --line: #f2f2f2;
     --soft-line: #333333;
     --accent: #f2f2f2;
+    --glass: rgb(24 24 24 / 0.68);
     color-scheme: dark;
   }
 }
@@ -65,9 +67,12 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   position: sticky;
   top: 0;
   z-index: 30;
-  background: var(--surface);
+  /* vidro: deixa ver, desfocado, o que passa por baixo */
+  background: var(--glass);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
   padding-top: env(safe-area-inset-top);
-  border-bottom: 1px solid var(--soft-line);
+  border-bottom: 1px solid rgb(0 0 0 / 0.06);
 }
 .bar { display: flex; align-items: center; gap: 24px; max-width: var(--max); margin: 0 auto; padding: 0 var(--gutter); height: var(--header-h); }
 .brand { font-family: var(--logo); font-size: 30px; line-height: 1; letter-spacing: -0.01em; text-decoration: none; margin-right: auto; }

@@ -103,7 +103,14 @@ function collapseSessions(list) {
   });
 }
 
-const isPrivate = (e) => e.rawCategories.length > 0 && e.rawCategories.every((c) => PRIVATE_CATEGORIES.has(slugify(c)));
+// Atividades só para escolas (visitas de turmas, programas por nível de ensino) não são abertas ao público.
+// Ficam as que também são para famílias.
+const SCHOOL_LEVEL = /^(pre-?escolar|primeira infancia|primeiro ciclo|segundo ciclo|terceiro ciclo|ensino secundario|secundario)\b/;
+const isPrivate = (e) => {
+  const cats = e.rawCategories.map(slugify);
+  if (cats.includes('familias')) return false;
+  return cats.some((c) => PRIVATE_CATEGORIES.has(c)) || SCHOOL_LEVEL.test(slugify(e.title));
+};
 
 const key = (e) => `${slugify(e.title).replace(/[^a-z0-9]+/g, ' ').trim()}|${e.startDate}|${e.city}`;
 const byKey = new Map();

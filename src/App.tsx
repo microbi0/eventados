@@ -126,6 +126,7 @@ export default function App() {
             data={shown}
             city={city}
             onSelect={setSelected}
+            onPickPlace={() => setPickingCity(true)}
             onExplore={(o) => {
               setQuery(o.query ?? '');
               setRange(o.range ?? 'week');
@@ -166,7 +167,7 @@ export default function App() {
         </nav>
       )}
 
-      {pickingCity && !sidebar && (
+      {pickingCity && (
         <Sheet className="picker" label="Escolher sítio" onClose={() => setPickingCity(false)}>
           <div className="sheet-head">
             <h2>Onde?</h2>

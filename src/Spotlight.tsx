@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Star } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
 import type { EventItem } from './types';
 import { styleOf } from './categories';
 import { FreeBadge, MetaRow, Placeholder, WhenRow } from './ui';
@@ -11,12 +11,12 @@ export interface Spot {
 
 const INTERVAL = 6000;
 
-type Tone = { dark: boolean; rgb: [number, number, number] };
+export type Tone = { dark: boolean; rgb: [number, number, number] };
 const toneCache = new Map<string, Promise<Tone>>();
 
 // Cor média e luminosidade da imagem (amostra 12×12 num canvas). As imagens das fontes permitem CORS;
 // se alguma não permitir, assume-se imagem escura (texto claro sobre uma rampa escura).
-function imageTone(url: string | null, fallback: string): Promise<Tone> {
+export function imageTone(url: string | null, fallback: string): Promise<Tone> {
   const hex = fallback.replace('#', '');
   const fb: Tone = { dark: true, rgb: [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)] };
   if (!url) return Promise.resolve({ ...fb, dark: luminance(fb.rgb) < 0.6 });
@@ -56,9 +56,10 @@ function imageTone(url: string | null, fallback: string): Promise<Tone> {
 
 const luminance = ([r, g, b]: [number, number, number]) => (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
-function useTone(e: EventItem) {
+export function useTone(e: EventItem | null) {
   const [tone, setTone] = useState<Tone | null>(null);
   useEffect(() => {
+    if (!e) return;
     let alive = true;
     imageTone(e.image, styleOf(e.categories[0]).color).then((t) => alive && setTone(t));
     return () => {
@@ -69,7 +70,7 @@ function useTone(e: EventItem) {
 }
 
 // Slider dos eventos mais relevantes da semana: avança sozinho, pausa com o rato/foco, aceita deslizar no telemóvel.
-export default function Spotlight({ spots, title, onOpen }: { spots: Spot[]; labels: Record<string, string>; title: string; onOpen: (e: EventItem) => void }) {
+export default function Spotlight({ spots, title, onOpen, onActive }: { spots: Spot[]; title: string; onOpen: (e: EventItem) => void; onActive?: (e: EventItem) => void }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const startX = useRef<number | null>(null);
@@ -78,6 +79,10 @@ export default function Spotlight({ spots, title, onOpen }: { spots: Spot[]; lab
   const go = useCallback((i: number) => setIndex(((i % n) + n) % n), [n]);
 
   useEffect(() => setIndex(0), [spots]);
+
+  useEffect(() => {
+    if (spots[index]) onActive?.(spots[index].e);
+  }, [index, spots, onActive]);
 
   useEffect(() => {
     if (paused || n < 2) return;
@@ -108,13 +113,6 @@ export default function Spotlight({ spots, title, onOpen }: { spots: Spot[]; lab
         if (Math.abs(dx) > 50) go(index + (dx < 0 ? 1 : -1));
       }}
     >
-      <div className="spot-head">
-        <h2>
-          <Star size={22} />
-          {title}
-        </h2>
-      </div>
-
       <div className="spot-viewport">
         <div className="spot-track" style={{ transform: `translateX(-${index * 100}%)` }}>
           {spots.map(({ e }, i) => (

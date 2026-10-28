@@ -13,10 +13,12 @@ const FEMININE = new Set([
   'Ponta Delgada', 'Vila da Praia da Vitória', 'Anadia', 'Sertã', 'Pampilhosa da Serra', 'Mealhada',
 ]);
 
-// "no Porto", "na Maia", "em Lisboa"; sem sítio escolhido, "em Portugal".
-export function inPlace(city: string): string {
-  if (city === ALL) return 'em Portugal';
-  if (MASCULINE.has(city)) return `no ${city}`;
-  if (FEMININE.has(city)) return `na ${city}`;
-  return `em ${city}`;
+// ["no", "Porto"], ["na", "Maia"], ["em", "Lisboa"]; sem sítio escolhido, ["em", "Portugal"].
+export function placeParts(city: string): [string, string] {
+  if (city === ALL) return ['em', 'Portugal'];
+  if (MASCULINE.has(city)) return ['no', city];
+  if (FEMININE.has(city)) return ['na', city];
+  return ['em', city];
 }
+
+export const inPlace = (city: string) => placeParts(city).join(' ');

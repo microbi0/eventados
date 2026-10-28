@@ -1,10 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { ArrowRight, Gift, Landmark, Search, Sparkles, Sun, CalendarRange } from 'lucide-react';
+import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { ArrowRight, ChevronDown, Gift, Landmark, Search, Sun, CalendarRange } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import type { DateRange } from '../dates';
 import { ALL, filterEvents, scoreEvent, topRelevant, type Hit } from '../filters';
-import { inPlace } from '../places';
-import Spotlight, { type Spot } from '../Spotlight';
+import { placeParts } from '../places';
+import Spotlight, { useTone, type Spot } from '../Spotlight';
 import { EventCard, stagger } from '../ui';
 import { styleOf } from '../categories';
 
@@ -12,14 +12,17 @@ interface Props {
   data: EventsData;
   city: string;
   onSelect: (e: EventItem) => void;
+  onPickPlace: () => void;
   // Abre a página Eventos com filtros pré-definidos.
   onExplore: (opts: { query?: string; range?: DateRange; cats?: string[]; freeOnly?: boolean }) => void;
 }
 
-const SUGGESTIONS = ['concerto', 'teatro', 'exposição', 'fado', 'stand-up', 'cinema'];
-
-export default function Home({ data, city, onSelect, onExplore }: Props) {
+export default function Home({ data, city, onSelect, onPickPlace, onExplore }: Props) {
   const [q, setQ] = useState('');
+  // Destaque ativo no slider: a sua imagem desfocada é o fundo do topo da página.
+  const [active, setActive] = useState<EventItem | null>(null);
+  const onActive = useCallback((e: EventItem) => setActive(e), []);
+  const tone = useTone(active);
   const venueSources = useMemo(() => new Set(data.sources.filter((s) => s.kind === 'venue').map((s) => s.id)), [data]);
 
   const sections = useMemo(() => {
@@ -44,15 +47,15 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
     spots.forEach((s) => shown.add(s.e.id));
     return {
       spots,
-      spotTitle: 'Em destaque esta semana',
       today: take(today),
       weekend: take(weekend),
       venues: take(venues),
       free: take(free),
       counts,
-      monthTotal: month.length,
     };
   }, [data, city, venueSources]);
+
+  const place = placeParts(city);
 
   const submit = (ev: FormEvent) => {
     ev.preventDefault();
@@ -61,28 +64,34 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
 
   return (
     <div className="home">
-      <section className="home-hero">
-        <p className="eyebrow">
-          <Sparkles size={16} /> {sections.monthTotal} eventos nos próximos 30 dias
-        </p>
-        <h1>O que fazer {inPlace(city)}?</h1>
-        <form className="big-search" onSubmit={submit} role="search">
-          <Search size={22} />
-          <input type="search" placeholder="Concertos, peças, exposições, artistas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Pesquisar eventos" />
-          <button type="submit">
-            Procurar <ArrowRight size={18} />
-          </button>
-        </form>
-        <div className="suggestions">
-          {SUGGESTIONS.map((s, i) => (
-            <button key={s} style={stagger(i)} onClick={() => onExplore({ query: s, range: 'all' })}>
-              {s}
-            </button>
-          ))}
+      <div
+        className={`home-top ${tone && !tone.dark ? 'light' : 'dark'}`}
+        style={{ ['--tone' as string]: tone ? tone.rgb.join(' ') : '40 40 40' }}
+      >
+        {/* fundo: a imagem do destaque ativo, desfocada, com rampas até à cor da página */}
+        <div className="home-backdrop" aria-hidden="true">
+          {active?.image && <img key={active.id} src={active.image} alt="" />}
         </div>
-      </section>
+        <section className="home-hero">
+          <h1>
+            O que fazer {place[0]}{' '}
+            <button className="place-btn" onClick={onPickPlace} aria-label={`Mudar de sítio (atual: ${place[1]})`}>
+              {place[1]}
+              <ChevronDown className="place-chevron" strokeWidth={3} />
+            </button>
+            ?
+          </h1>
+          <form className="big-search" onSubmit={submit} role="search">
+            <Search size={22} />
+            <input type="search" placeholder="Concertos, peças, exposições, artistas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Pesquisar eventos" />
+            <button type="submit">
+              Procurar <ArrowRight size={18} />
+            </button>
+          </form>
+        </section>
 
-      <Spotlight spots={sections.spots} labels={data.categories} title={sections.spotTitle} onOpen={onSelect} />
+        <Spotlight spots={sections.spots} title="Destaques" onOpen={onSelect} onActive={onActive} />
+      </div>
 
       <section className="home-cats">
         {Object.entries(data.categories)

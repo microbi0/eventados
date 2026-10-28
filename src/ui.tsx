@@ -29,6 +29,44 @@ export function FreeTag() {
   );
 }
 
+// Contorno de flor (círculo com 12 pétalas) para o selo "Grátis".
+const FLOWER = (() => {
+  const pts: string[] = [];
+  for (let i = 0; i <= 240; i++) {
+    const t = (i / 240) * Math.PI * 2;
+    const rad = 44 + 6 * Math.cos(12 * t);
+    pts.push(`${(50 + rad * Math.cos(t)).toFixed(2)},${(50 + rad * Math.sin(t)).toFixed(2)}`);
+  }
+  return `M${pts.join('L')}Z`;
+})();
+
+export function FreeBadge({ small }: { small?: boolean }) {
+  return (
+    <span className={small ? 'free-badge small' : 'free-badge'} title="Entrada gratuita">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <path d={FLOWER} />
+      </svg>
+      <span>{small ? 'Free' : 'Grátis'}</span>
+    </span>
+  );
+}
+
+// Data e hora na mesma linha, cada uma com o seu ícone.
+export function WhenRow({ e }: { e: EventItem }) {
+  return (
+    <p className="meta-row when">
+      <CalendarDays size={16} strokeWidth={2.2} />
+      <span>{formatSpan(e)}</span>
+      {e.timesText && (
+        <>
+          <Clock size={16} strokeWidth={2.2} />
+          <span>{e.timesText}</span>
+        </>
+      )}
+    </p>
+  );
+}
+
 export function Placeholder({ id, size = 56 }: { id: string; size?: number }) {
   const { icon: Icon, color, ink } = styleOf(id);
   return (
@@ -65,17 +103,13 @@ export function EventCard({ e, labels, tag, showCity, active, index = 0, onOpen 
     <button className={active ? 'card on' : 'card'} onClick={onOpen} aria-pressed={active} style={stagger(index)}>
       <div className="media">
         {e.image ? <img src={e.image} alt="" loading="lazy" /> : <Placeholder id={tag} />}
-        <div className="tags">
-          <Tag id={tag} label={labels[tag] ?? 'Outros'} />
-          {e.isFree && <FreeTag />}
-        </div>
+        {e.isFree && <FreeBadge />}
       </div>
       <div className="body">
-        {place && <MetaRow icon={MapPin}>{place}</MetaRow>}
-        <MetaRow icon={CalendarDays}>{formatSpan(e)}</MetaRow>
-        {e.timesText && <MetaRow icon={Clock}>{e.timesText}</MetaRow>}
+        <Tag id={tag} label={labels[tag] ?? 'Outros'} />
         <h3>{e.title}</h3>
-        {e.subtitle && <p className="subtitle">{e.subtitle}</p>}
+        {place && <MetaRow icon={MapPin}>{place}</MetaRow>}
+        <WhenRow e={e} />
       </div>
     </button>
   );
@@ -92,6 +126,7 @@ export function EventRow({ e, labels, tag, showCity, active, index = 0, onOpen }
         <span className="row-badge" style={{ background: color, color: ink }} title={labels[tag]}>
           <Icon size={13} />
         </span>
+        {e.isFree && <FreeBadge small />}
       </div>
       <div className="row-body">
         <h3>{e.title}</h3>
@@ -241,6 +276,18 @@ export function Sheet({ className, label, onClose, children }: { className: stri
   );
 }
 
+function Fact({ icon: Icon, label, wide, children }: { icon: typeof MapPin; label: string; wide?: boolean; children: ReactNode }) {
+  return (
+    <div className={wide ? 'fact wide' : 'fact'}>
+      <span className="fact-label">
+        <Icon size={15} strokeWidth={2.2} />
+        {label}
+      </span>
+      <span className="fact-value">{children}</span>
+    </div>
+  );
+}
+
 export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Record<string, string>; onClose: () => void }) {
   const mapsUrl =
     e.lat != null && e.lon != null
@@ -260,33 +307,38 @@ export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Re
       </button>
       <div className="media">
         {e.image ? <img src={e.image} alt="" /> : <Placeholder id={e.categories[0]} />}
-        <div className="tags">
+        {e.isFree && <FreeBadge />}
+      </div>
+      <div className="body">
+        <div className="detail-tags">
           {e.categories.map((c) => (
             <Tag key={c} id={c} label={labels[c] ?? c} />
           ))}
-          {e.isFree && <FreeTag />}
         </div>
-      </div>
-      <div className="body">
         <h2>{e.title}</h2>
         {e.subtitle && <p className="subtitle">{e.subtitle}</p>}
         <div className="facts">
-          <MetaRow icon={CalendarDays}>{e.datesText || formatSpan(e)}</MetaRow>
-          {e.timesText && <MetaRow icon={Clock}>{e.timesText}</MetaRow>}
-          <MetaRow icon={MapPin}>
-            {e.venue && <strong>{e.venue}</strong>}
-            {e.venue && <br />}
-            {e.address && e.address !== e.venue && (
-              <>
-                {e.address}
-                <br />
-              </>
-            )}
-            {e.city}
-            {e.district && e.district !== e.city ? ` · ${e.district}` : ''}
-          </MetaRow>
-          {(e.price || e.isFree) && <MetaRow icon={Euro}>{e.price ?? 'Entrada gratuita'}</MetaRow>}
-          <MetaRow icon={Building2}>Fonte: {e.sourceName}</MetaRow>
+          <Fact icon={CalendarDays} label="Data">
+            {formatSpan(e)}
+            {e.datesText && e.datesText !== formatSpan(e) && <small>{e.datesText}</small>}
+          </Fact>
+          {e.timesText && (
+            <Fact icon={Clock} label="Hora">
+              {e.timesText}
+            </Fact>
+          )}
+          <Fact icon={Euro} label="Preço">
+            {e.price ?? (e.isFree ? 'Entrada gratuita' : 'Ver no site')}
+          </Fact>
+          <Fact icon={MapPin} label="Local" wide>
+            {e.venue ?? e.city}
+            <small>
+              {[e.address !== e.venue ? e.address : null, e.city, e.district && e.district !== e.city ? e.district : null].filter(Boolean).join(' · ')}
+            </small>
+          </Fact>
+          <Fact icon={Building2} label="Fonte">
+            {e.sourceName}
+          </Fact>
         </div>
         {e.description && <p className="desc">{e.description}</p>}
         <div className="actions">

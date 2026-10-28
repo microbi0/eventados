@@ -38,18 +38,13 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
       top.forEach((h) => shown.add(h.e.id));
       return top;
     };
-    // Slider: os 5 mais relevantes de hoje (no máximo 2 do mesmo tipo); se hoje houver poucos, completa com os próximos dias.
-    let spotTitle = 'Em destaque hoje';
-    let pool = today;
-    if (topRelevant(today, venueSources, 5, new Set(), 2).length < 5) {
-      pool = filterEvents(data.events, { ...base, range: 'week' });
-      spotTitle = today.length ? 'Em destaque hoje e nos próximos dias' : 'Em destaque nos próximos dias';
-    }
-    const spots: Spot[] = topRelevant(pool, venueSources, 5, new Set(), 2).map(({ e }) => ({ e, reasons: scoreEvent(e, venueSources).reasons }));
+    // Slider: os 5 mais relevantes dos próximos 7 dias (no máximo 2 do mesmo tipo).
+    const week = filterEvents(data.events, { ...base, range: 'week' });
+    const spots: Spot[] = topRelevant(week, venueSources, 5, new Set(), 2).map(({ e }) => ({ e, reasons: scoreEvent(e, venueSources).reasons }));
     spots.forEach((s) => shown.add(s.e.id));
     return {
       spots,
-      spotTitle,
+      spotTitle: 'Em destaque esta semana',
       today: take(today),
       weekend: take(weekend),
       venues: take(venues),

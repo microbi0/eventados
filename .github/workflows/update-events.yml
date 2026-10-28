@@ -5,6 +5,9 @@ name: Atualizar eventos
 on:
   schedule:
     - cron: '30 4 * * *' # todos os dias às 04:30 UTC (madrugada em Portugal)
+  # Alterações ao código também são publicadas; a recolha só corre se a última tiver mais de 20 h.
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       force:

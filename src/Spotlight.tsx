@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, CalendarDays, ChevronLeft, ChevronRight, Clock, MapPin, Star } from 'lucide-react';
+import { ArrowRight, ChevronLeft, ChevronRight, MapPin, Star } from 'lucide-react';
 import type { EventItem } from './types';
-import { formatSpan } from './dates';
-import { FreeTag, MetaRow, Placeholder, Tag } from './ui';
+import { FreeBadge, MetaRow, Placeholder, Tag, WhenRow } from './ui';
 
 export interface Spot {
   e: EventItem;
@@ -72,22 +71,18 @@ export default function Spotlight({ spots, labels, title, onOpen }: { spots: Spo
             <article key={e.id} className={i === index ? 'spot on' : 'spot'} aria-roledescription="slide" aria-label={`${i + 1} de ${n}`} aria-hidden={i !== index}>
               <button className="spot-media" onClick={() => onOpen(e)} tabIndex={i === index ? 0 : -1} aria-label={e.title}>
                 {e.image ? <img src={e.image} alt="" draggable={false} /> : <Placeholder id={e.categories[0]} size={80} />}
-                <div className="tags">
-                  <Tag id={e.categories[0]} label={labels[e.categories[0]] ?? 'Outros'} />
-                  {e.isFree && <FreeTag />}
-                </div>
+                {e.isFree && <FreeBadge />}
               </button>
               <div className="spot-info">
                 <p className="spot-rank">
                   <strong>{String(i + 1).padStart(2, '0')}</strong>
                   <span>/ {String(n).padStart(2, '0')}</span>
                 </p>
+                <Tag id={e.categories[0]} label={labels[e.categories[0]] ?? 'Outros'} />
                 <h3>{e.title}</h3>
-                {e.subtitle && <p className="subtitle">{e.subtitle}</p>}
                 <div className="spot-meta">
                   {e.venue && <MetaRow icon={MapPin}>{e.venue}</MetaRow>}
-                  <MetaRow icon={CalendarDays}>{formatSpan(e)}</MetaRow>
-                  {e.timesText && <MetaRow icon={Clock}>{e.timesText}</MetaRow>}
+                  <WhenRow e={e} />
                 </div>
                 {reasons.length > 0 && (
                   <p className="why" title="Porque está em destaque">

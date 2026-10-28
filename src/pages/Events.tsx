@@ -3,7 +3,6 @@ import { CalendarDays, Gift, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
 import { ALL, filterEvents } from '../filters';
-import { inPlace } from '../places';
 import { CategoryChip, CategoryRow, DetailContent, EventCard, EventRow } from '../ui';
 import { styleOf } from '../categories';
 
@@ -86,34 +85,28 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
               </li>
             ))}
           </ul>
-          <p className="label">Preço</p>
-          <button
-            className={freeOnly ? 'cat-row free on' : 'cat-row free'}
-            onClick={() => setFreeOnly(!freeOnly)}
-            aria-pressed={freeOnly}
-            style={{ ['--cat' as string]: '#c9f27a', ['--ink' as string]: '#111111' }}
-          >
-            <span className="cat-icon">
-              <Gift size={16} />
-            </span>
-            <span className="cat-name">Só gratuitos</span>
-          </button>
         </aside>
       )}
 
       {/* ---------- coluna 2: datas + lista ---------- */}
       <main className="list-col">
         <section className="hero">
-          <h1>
-            Eventos <span>{inPlace(city)}</span>
-          </h1>
-          <div className="segmented" role="tablist" aria-label="Quando">
-            {DATE_RANGES.map((r) => (
-              <button key={r.id} role="tab" aria-selected={range === r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
-                {r.label}
-                {range === r.id && <i className="dot" />}
-              </button>
-            ))}
+          <div className="when-bar">
+            <div className="segmented" role="tablist" aria-label="Quando">
+              {DATE_RANGES.map((r) => (
+                <button key={r.id} role="tab" aria-selected={range === r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
+                  {r.label}
+                  {range === r.id && <i className="dot" />}
+                </button>
+              ))}
+            </div>
+            <button className={freeOnly ? 'switch on' : 'switch'} role="switch" aria-checked={freeOnly} onClick={() => setFreeOnly(!freeOnly)}>
+              <span className="switch-track">
+                <span className="switch-knob" />
+              </span>
+              <Gift size={16} />
+              Só gratuitos
+            </button>
           </div>
           <label className="search">
             <Search size={18} />
@@ -130,11 +123,6 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
               {visibleCats.map(([id, label]) => (
                 <CategoryChip key={id} id={id} label={label} count={counts[id] ?? 0} active={cats.includes(id)} onClick={() => toggleCat(id)} />
               ))}
-              <button className={freeOnly ? 'chip free on' : 'chip free'} onClick={() => setFreeOnly(!freeOnly)}>
-                <Gift size={15} />
-                Gratuitos
-                {freeOnly && <i className="dot" />}
-              </button>
             </div>
           )}
           <p className="summary">

@@ -933,6 +933,226 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 @keyframes spinSlow { to { transform: rotate(360deg); } }
 @keyframes progress { from { transform: scaleX(0); } }
 
+/* ---------- Anúncios Google Ads (Home Banner & Feed Cards) ---------- */
+.home-ad-banner {
+  margin: 28px 0 10px;
+  background: var(--surface);
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius-card);
+  padding: 16px 20px;
+  overflow: hidden;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s;
+}
+.home-ad-banner:hover {
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.05);
+}
+.home-ad-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ad-badge-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.ad-provider-tag {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  opacity: 0.7;
+}
+.home-ad-content {
+  position: relative;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-ad-ins {
+  width: 100%;
+  min-height: 90px;
+}
+.ad-demo-banner {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 18px;
+  background: var(--surface-2);
+  border-radius: 16px;
+}
+.ad-demo-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: var(--text);
+  color: var(--bg);
+  flex-shrink: 0;
+}
+.ad-demo-text {
+  flex: 1;
+}
+.ad-demo-text strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.ad-demo-text p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.ad-demo-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--pill);
+  background: var(--surface);
+  border: 1px solid var(--soft-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .ad-demo-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .ad-demo-pill {
+    align-self: flex-start;
+  }
+}
+
+/* Cartão de anúncio na grelha de eventos */
+.card.ad-card {
+  border: 1.5px dashed var(--soft-line);
+  background: var(--surface);
+}
+.ad-media {
+  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface) 100%);
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.ad-media-art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+}
+.ad-icon-halo {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 0.08);
+}
+.ad-floating-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  background: var(--text);
+  color: var(--bg);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.ad-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 4px;
+}
+.tag.ad-tag {
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.ad-sublabel {
+  font-size: 11.5px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.ad-action-row {
+  margin-top: 6px;
+}
+.ad-learn-more {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.card.ad-card:hover .ad-learn-more {
+  color: var(--text);
+}
+
+/* Linha de anúncio compacta (modo row) */
+.row.ad-row {
+  border: 1.5px dashed var(--soft-line);
+}
+.ad-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.row-badge.ad-badge {
+  background: var(--text);
+  color: var(--bg);
+}
+.ad-row-tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+/* Botão de aviso na summary quando a categoria restringe o total encontrado */
+.summary-more-cats {
+  margin-left: 8px;
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.summary-more-cats:hover {
+  opacity: 0.8;
+}
+
 /* Garante ease-in-out em tudo, incluindo transições declaradas sem curva e animações contínuas. */
 *, *::before, *::after {
   transition-timing-function: var(--ease) !important;

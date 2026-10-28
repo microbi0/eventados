@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
 import { ALL, filterEvents } from '../filters';
 import { CategoryChip, CategoryRow, DetailContent, EventCard, EventRow } from '../ui';
 import { styleOf } from '../categories';
+import { EventAdCard } from '../ads';
 
 const PAGE = 30;
 
@@ -134,6 +135,11 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                 </span>
               );
             })}
+            {query.trim() && cats.length > 0 && inScope.length > results.length && (
+              <button className="link summary-more-cats" onClick={() => setCats([])} title="Ver eventos encontrados em todas as categorias">
+                +{inScope.length - results.length} noutras categorias (mostrar todos)
+              </button>
+            )}
           </p>
         </section>
 
@@ -141,30 +147,40 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
 
         {/* key muda com os filtros para reanimar a lista */}
         <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
-          {groups.map((g, gi) => (
-            <section key={g.day} className="day">
-              {(query.trim() || (range !== 'today' && range !== 'tomorrow')) && (
-                <h2 style={{ ['--i' as string]: Math.min(gi, 6) }}>
-                  <CalendarDays size={18} />
-                  {formatDay(g.day)}
-                </h2>
-              )}
-              <div className={compact ? 'rows' : 'grid'}>
-                {g.items.map(({ e }, i) => {
-                  const props = {
-                    e,
-                    labels: data.categories,
-                    tag: tagFor(e),
-                    showCity: city === ALL,
-                    active: selected?.id === e.id,
-                    index: i,
-                    onOpen: () => onSelect(selected?.id === e.id ? null : e),
-                  };
-                  return compact ? <EventRow key={e.id} {...props} /> : <EventCard key={e.id} {...props} />;
-                })}
-              </div>
-            </section>
-          ))}
+          {(() => {
+            let totalRendered = 0;
+            return groups.map((g, gi) => (
+              <section key={g.day} className="day">
+                {(query.trim() || (range !== 'today' && range !== 'tomorrow')) && (
+                  <h2 style={{ ['--i' as string]: Math.min(gi, 6) }}>
+                    <CalendarDays size={18} />
+                    {formatDay(g.day)}
+                  </h2>
+                )}
+                <div className={compact ? 'rows' : 'grid'}>
+                  {g.items.map(({ e }, i) => {
+                    const itemIndex = totalRendered++;
+                    const showAd = (itemIndex + 1) % 6 === 0;
+                    const props = {
+                      e,
+                      labels: data.categories,
+                      tag: tagFor(e),
+                      showCity: city === ALL,
+                      active: selected?.id === e.id,
+                      index: i,
+                      onOpen: () => onSelect(selected?.id === e.id ? null : e),
+                    };
+                    return (
+                      <Fragment key={e.id}>
+                        {compact ? <EventRow {...props} /> : <EventCard {...props} />}
+                        {showAd && <EventAdCard compact={compact} index={i + 1} />}
+                      </Fragment>
+                    );
+                  })}
+                </div>
+              </section>
+            ));
+          })()}
         </div>
 
         {limit < results.length && (

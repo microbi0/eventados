@@ -190,6 +190,10 @@ export const campoPequeno = {
       const dates = dateText && parsePtDateRange(dateText);
       if (!href || !title || !dates || out.has(href)) continue;
       const img = block.match(/<img[^>]+src="([^"]+)"/)?.[1];
+      const alt = block.match(/<img[^>]+alt="([^"]+)"/)?.[1]?.trim();
+      const imgTitle = block.match(/<img[^>]+title="([^"]+)"/)?.[1]?.trim();
+      const artist = alt || imgTitle;
+      const subtitle = artist && !artist.toLowerCase().startsWith('cartaz') && artist.toLowerCase() !== title.toLowerCase() ? decodeEntities(artist) : null;
       const tags = [...block.matchAll(/<li class="tag">([\s\S]*?)<\/li>/g)].map((m) => m[1].replace(/<[^>]+>/g, '').trim()).filter(Boolean);
       const url = absUrl(href, this.meta.url);
       out.set(
@@ -198,6 +202,7 @@ export const campoPequeno = {
           id: href.split('/').pop(),
           url,
           title: decodeEntities(title),
+          subtitle,
           venue: 'Sagres Campo Pequeno',
           address: 'Campo Pequeno, 1000-082 Lisboa',
           lat: 38.7423,
@@ -666,6 +671,10 @@ export const teatroJLSilva = {
   async scrape() {
     const today = lisbonDate();
     const html = await fetchText(this.meta.url);
+    const carouselMatch = html.match(/window\.__EVENTOS_CARROSSEL__\s*=\s*(\[[\s\S]*?\]);/);
+    const carouselEvents = carouselMatch ? JSON.parse(carouselMatch[1]) : [];
+    const descBySlug = new Map(carouselEvents.map((c) => [c.slug, c.description?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()]));
+
     const grid = html.split('id="tjls-programacao-event-grid"')[1]?.split('</ul')[0];
     const articles = grid ? grid.split('<article').slice(1) : [];
     const out = new Map();
@@ -682,12 +691,16 @@ export const teatroJLSilva = {
       const startDate = isoDate || (dateText && parsePtDateRange(dateText)?.start);
       if (!link || !title || !startDate || out.has(link)) continue;
 
+      const slug = link.replace(/\/$/, '').split('/').pop();
+      const desc = descBySlug.get(slug);
+
       out.set(
         link,
         makeEvent(this.meta, {
-          id: link.replace(/\/$/, '').split('/').pop(),
+          id: slug,
           url: link,
           title: decodeEntities(title),
+          description: desc ? decodeEntities(desc) : null,
           venue: venue ? decodeEntities(venue) : 'Teatro José Lúcio da Silva',
           address: 'Av. Heróis de Angola, Leiria',
           lat: 39.7436,
@@ -730,6 +743,7 @@ export const teatroViriato = {
         const href = cards[c];
         const b = cards[c + 1];
         const title = b.match(/<div class="title">([\s\S]*?)<\/div>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+        const subtitle = b.match(/<div class="subtitle">([\s\S]*?)<\/div>/)?.[1]?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const dateText = b.match(/<div class="dates">([\s\S]*?)<\/div>/)?.[1]?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
         const cat = b.match(/<div\s+class="category"[^>]*>([\s\S]*?)<\/div>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
         const img = b.match(/<img[^>]+src="([^"]+)"/)?.[1];
@@ -761,6 +775,7 @@ export const teatroViriato = {
             id: href.replace(/\/$/, '').split('/').pop(),
             url,
             title: decodeEntities(title),
+            subtitle: subtitle ? decodeEntities(subtitle) : null,
             venue: 'Teatro Viriato',
             address: 'Largo José dos Reis, Viseu',
             lat: 40.6575,
@@ -872,6 +887,90 @@ export const teatroBraganca = {
           image: img ? absUrl(img, this.meta.url) : null,
         }),
       );
+    }
+    return [...out.values()].filter((e) => e.endDate >= today);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Auditório CCOP (Círculo Católico de Operários do Porto).
+// ---------------------------------------------------------------------------
+export const auditorioCCOP = {
+  meta: { id: 'auditorioccop', name: 'Auditório CCOP', url: 'https://auditorio-ccop.pt/', city: 'Porto' },
+  async scrape() {
+    const today = lisbonDate();
+    const out = new Map();
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      Referer: 'https://auditorio-ccop.pt/?p=agenda',
+      'User-Agent': 'Mozilla/5.0',
+    };
+
+    for (let p2 = 0; p2 <= 2; p2++) {
+      let html;
+      try {
+        const res = await fetch('https://auditorio-ccop.pt/ver1/phps/respostas.php', {
+          method: 'POST',
+          headers,
+          body: `parametros%5Bp1%5D=6&parametros%5Bp2%5D=${p2}&parametros%5Bbsmall%5D=0`,
+        });
+        html = await res.text();
+      } catch {
+        break;
+      }
+
+      const calls = [...html.matchAll(/showEventoAgenda\((\d+),(\d+),(\d+),(\d+)\)/g)];
+      for (const [, p3, p4, o, t] of calls) {
+        try {
+          const dRes = await fetch('https://auditorio-ccop.pt/ver1/phps/respostas.php', {
+            method: 'POST',
+            headers,
+            body: `parametros%5Bp1%5D=7&parametros%5Bp2%5D=${o}&parametros%5Bp3%5D=${p3}&parametros%5Bp4%5D=${p4}&parametros%5Bp5%5D=${t}`,
+          });
+          const dHtml = await dRes.text();
+          const rawTitle = dHtml.match(/<tx-xlarge><b>([\s\S]*?)<\/b><\/tx-xlarge>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+          const day = dHtml.match(/<tx-xxxlarge><b>(\d+)<\/b><\/tx-xxxlarge>/)?.[1];
+          const time = dHtml.match(/<b>(\d{1,2}:\d{2})<\/b>/)?.[1];
+          const img = dHtml.match(/data-src="([^"]+)"/)?.[1];
+          const tickets = dHtml.match(/window\.open\((?:"|\x27)(https:\/\/[^\x27"]+)/)?.[1];
+          const cat = dHtml.match(/<i>([A-ZÇÃÕ\s]+)<\/i>/)?.[1]?.trim();
+          const desc = dHtml.match(/<div style="margin-top: 20px; padding: 0 40px 0 40px[^>]*>([\s\S]*?)<\/div>/)?.[1]?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          const price = dHtml.match(/Preço:([^\s<]+)/)?.[1]?.trim();
+
+          if (!rawTitle || !day) continue;
+          const mm = String(p3).padStart(2, '0');
+          const dd = String(day).padStart(2, '0');
+          const dateStr = `${p4}-${mm}-${dd}`;
+          const id = `ccop-${p4}-${mm}-${dd}-${t}`;
+
+          if (out.has(id)) continue;
+
+          out.set(
+            id,
+            makeEvent(this.meta, {
+              id,
+              url: 'https://auditorio-ccop.pt/?p=agenda',
+              title: decodeEntities(rawTitle),
+              description: desc ? decodeEntities(desc) : null,
+              venue: 'Auditório CCOP',
+              address: 'Rua de Costa Cabral 75, Porto',
+              lat: 41.1598,
+              lon: -8.6012,
+              startDate: dateStr,
+              endDate: dateStr,
+              timesText: time || null,
+              price: price || null,
+              image: img ? absUrl(img, this.meta.url) : null,
+              tickets: tickets || null,
+              rawCategories: cat ? [cat] : [],
+              fallbackCategory: 'musica',
+            }),
+          );
+        } catch {
+          // ignora erro num item individual
+        }
+      }
     }
     return [...out.values()].filter((e) => e.endDate >= today);
   },

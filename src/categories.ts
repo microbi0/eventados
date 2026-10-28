@@ -18,24 +18,25 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-// Cor e ícone de cada tipo de evento. `ink` é a cor do texto sobre a cor de fundo.
+// Cor e ícone de cada tipo de evento. Paleta harmoniosa: mesma luminosidade e intensidade (OKLCH L 0.80, C 0.105)
+// com o tom distribuído pelo círculo cromático; texto escuro com contraste ≥ 9:1 em todas. `ink` é a cor do texto.
 export const CATEGORY_STYLE: Record<string, { icon: LucideIcon; color: string; ink: string }> = {
   all: { icon: LayoutGrid, color: '#111111', ink: '#ffffff' },
-  musica: { icon: Music, color: '#5b6cf0', ink: '#ffffff' },
-  teatro: { icon: Drama, color: '#bc8cb8', ink: '#111111' },
-  danca: { icon: PersonStanding, color: '#8f5fd6', ink: '#ffffff' },
-  humor: { icon: Laugh, color: '#ffcf33', ink: '#111111' },
-  cinema: { icon: Clapperboard, color: '#da5a3d', ink: '#ffffff' },
-  arte: { icon: Palette, color: '#a56b50', ink: '#ffffff' },
-  conversas: { icon: MessagesSquare, color: '#ff2659', ink: '#ffffff' },
-  ciencia: { icon: FlaskConical, color: '#3fb8af', ink: '#111111' },
-  familias: { icon: Baby, color: '#a8dba8', ink: '#111111' },
-  'ar-livre': { icon: Trees, color: '#749ef0', ink: '#111111' },
-  visitas: { icon: Footprints, color: '#e58fb0', ink: '#111111' },
-  desporto: { icon: Trophy, color: '#878a4b', ink: '#ffffff' },
-  feiras: { icon: PartyPopper, color: '#f08a24', ink: '#111111' },
-  workshops: { icon: PencilRuler, color: '#4fd1c5', ink: '#111111' },
-  outros: { icon: Sparkles, color: '#b9b9b9', ink: '#111111' },
+  musica: { icon: Music, color: '#99beff', ink: '#111111' },
+  teatro: { icon: Drama, color: '#dea7e6', ink: '#111111' },
+  danca: { icon: PersonStanding, color: '#bfb2fc', ink: '#111111' },
+  humor: { icon: Laugh, color: '#cdc06d', ink: '#111111' },
+  cinema: { icon: Clapperboard, color: '#f8a78a', ink: '#111111' },
+  arte: { icon: Palette, color: '#efae75', ink: '#111111' },
+  conversas: { icon: MessagesSquare, color: '#faa2a8', ink: '#111111' },
+  ciencia: { icon: FlaskConical, color: '#5ed2d6', ink: '#111111' },
+  familias: { icon: Baby, color: '#8ed197', ink: '#111111' },
+  'ar-livre': { icon: Trees, color: '#6ecbf3', ink: '#111111' },
+  visitas: { icon: Footprints, color: '#f0a2ca', ink: '#111111' },
+  desporto: { icon: Trophy, color: '#b2c97b', ink: '#111111' },
+  feiras: { icon: PartyPopper, color: '#e0b76c', ink: '#111111' },
+  workshops: { icon: PencilRuler, color: '#6fd4b6', ink: '#111111' },
+  outros: { icon: Sparkles, color: '#c4c4c4', ink: '#111111' },
 };
 
 export const styleOf = (id: string) => CATEGORY_STYLE[id] ?? CATEGORY_STYLE.outros;

@@ -94,6 +94,8 @@ interface ItemProps {
   showCity: boolean;
   active?: boolean;
   index?: number;
+  // Na lista do mapa o dia já está escolhido: sem data nem hora.
+  hideWhen?: boolean;
   onOpen: () => void;
 }
 
@@ -116,7 +118,7 @@ export function EventCard({ e, labels, tag, showCity, active, index = 0, onOpen 
 }
 
 // Versão compacta (lista) usada quando o detalhe está aberto ao lado.
-export function EventRow({ e, labels, tag, showCity, active, index = 0, onOpen }: ItemProps) {
+export function EventRow({ e, labels, tag, showCity, active, index = 0, hideWhen, onOpen }: ItemProps) {
   const { icon: Icon, color, ink } = styleOf(tag);
   const place = placeOf(e, showCity);
   return (
@@ -130,7 +132,7 @@ export function EventRow({ e, labels, tag, showCity, active, index = 0, onOpen }
       </div>
       <div className="row-body">
         <h3>{e.title}</h3>
-        <p className="row-meta">
+        {!hideWhen && <p className="row-meta">
           <span>
             <CalendarDays size={14} />
             {formatSpan(e)}
@@ -141,7 +143,7 @@ export function EventRow({ e, labels, tag, showCity, active, index = 0, onOpen }
               {e.timesText}
             </span>
           )}
-        </p>
+        </p>}
         {place && (
           <p className="row-meta">
             <span>

@@ -105,7 +105,7 @@ export function mapCategory(raw) {
 
 // Palavras que distinguem os três tipos de artes de palco.
 const STAGE = {
-  humor: /\b(stand[- ]?up|comedy|comedia|humor|humorista|improviso|roast)\b/,
+  humor: /\b(stand[- ]?up|comedy|comm?edia|humor|humorista|improviso|roast)\b/,
   danca: /\b(danca|dance|bailado|ballet|coreografi\w*|flamenco|tango|hip[- ]?hop dance)\b/,
   teatro: /\b(theatre|theater|teatro|opera|circo|musical|revista|marionetas|monologo|encenacao|dramaturgia|peca)\b/,
 };
@@ -131,7 +131,7 @@ const KEYWORDS = [
   ['ciencia', /\b(ciencia|astronomia|observacao astronomica|planetario|tecnologia|robotica)\b/],
   ['desporto', /\b(run|running|hike|hiking|fitness|pilates|corrida|trail|maratona|meia[- ]maratona|futebol|basquet\w*|andebol|voleibol|hoquei|torneio|campeonato|caminhada|yoga|btt|ciclismo|natacao|padel|tenis|surf|euro cup|qualifiers|\w+ x \w+)\b/],
   ['feiras', /\b(party|parties|brunch|wine|tasting|degustacao|prova de vinhos|market|fair|feira|mercado|mercadinho|festa|festas|festival gastronomico|gastronomi\w*|artesanato|magusto|arraial|romaria|carnaval|natal|passagem de ano|halloween|vinhos?)\b/],
-  ['visitas', /\b(walking tour|guided tour|tour|visita guiada|visitas guiadas|roteiro|percurso|passeio|tour guiado)\b/],
+  ['visitas', /\b(walking tour|guided tour|visita guiada|visitas guiadas|roteiro|percurso|passeio|tour guiado)\b/],
   ['familias', /\b(kids|children|family|criancas|infantil|familia|familias|bebes|kids|miudos|pais e filhos)\b/],
   ['ar-livre', /\b(ar livre|natureza|parque|jardim|praia)\b/],
 ];

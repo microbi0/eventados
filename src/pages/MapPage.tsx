@@ -2,12 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { LngLatBounds, Map as MapLibre, NavigationControl, setWorkerUrl, type GeoJSONSource, type LngLatBoundsLike, type MapLayerMouseEvent, type StyleSpecification } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { MapPinOff, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { firstOccurrence, iso } from '../dates';
 import { ALL, normalize } from '../filters';
 import { EventRow } from '../ui';
-import { styleOf } from '../categories';
+import { CATEGORY_STYLE, styleOf } from '../categories';
 
 // O empacotador muda os caminhos internos do MapLibre: indicamos o worker explicitamente.
 setWorkerUrl(workerUrl);
@@ -53,6 +54,31 @@ function minimalStyle(): Promise<StyleSpecification> {
       return style;
     });
   return styleCache;
+}
+
+// Marcador de cada tipo: círculo na cor do tipo, contorno branco e o ícone ao centro (SVG → imagem do mapa).
+function markerSvg(cat: string, size: number): string {
+  const { icon: Icon, color, ink } = styleOf(cat);
+  const icon = renderToStaticMarkup(<Icon size={size * 0.46} color={ink} strokeWidth={2.2} />).replace('<svg ', `<svg x="${size * 0.27}" y="${size * 0.27}" `);
+  const r = size / 2 - 3;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="${color}" stroke="#ffffff" stroke-width="4"/>${icon}</svg>`;
+}
+
+async function addCategoryIcons(m: MapLibre) {
+  await Promise.all(
+    Object.keys(CATEGORY_STYLE).map(
+      (cat) =>
+        new Promise<void>((resolve) => {
+          const img = new Image(64, 64);
+          img.onload = () => {
+            if (!m.hasImage(`cat-${cat}`)) m.addImage(`cat-${cat}`, img, { pixelRatio: 2 });
+            resolve();
+          };
+          img.onerror = () => resolve();
+          img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markerSvg(cat, 64))}`;
+        }),
+    ),
+  );
 }
 
 interface Props {
@@ -117,7 +143,8 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
       m.addControl(new NavigationControl({ showCompass: false }), 'top-left');
       map.current = m;
 
-      m.on('load', () => {
+      m.on('load', async () => {
+        await addCategoryIcons(m);
         m.addSource('events', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterRadius: 46, clusterMaxZoom: CLUSTER_MAX_ZOOM });
 
         // Grupos: círculo preto com o número de eventos; cresce com a quantidade.
@@ -142,26 +169,25 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
           layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-allow-overlap': true },
           paint: { 'text-color': '#ffffff' },
         });
-        // Eventos individuais: ponto na cor do tipo de evento.
+        // Eventos individuais: marcador com a cor e o ícone do tipo de evento.
         m.addLayer({
           id: 'point',
-          type: 'circle',
+          type: 'symbol',
           source: 'events',
           filter: ['!', ['has', 'point_count']],
-          paint: {
-            'circle-color': ['get', 'color'],
-            'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 6, 16, 10],
-            'circle-stroke-color': '#ffffff',
-            'circle-stroke-width': 2.5,
+          layout: {
+            'icon-image': ['concat', 'cat-', ['get', 'cat']],
+            'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.8, 16, 1],
+            'icon-allow-overlap': true,
           },
         });
-        // Realce do evento sob o rato ou selecionado.
+        // Realce do evento sob o rato ou selecionado: o mesmo marcador, maior.
         m.addLayer({
           id: 'point-hot',
-          type: 'circle',
+          type: 'symbol',
           source: 'events',
           filter: ['in', ['get', 'id'], ['literal', []]],
-          paint: { 'circle-color': ['get', 'color'], 'circle-radius': 15, 'circle-stroke-color': '#111111', 'circle-stroke-width': 3 },
+          layout: { 'icon-image': ['concat', 'cat-', ['get', 'cat']], 'icon-size': 1.45, 'icon-allow-overlap': true },
         });
 
         m.on('click', 'clusters', async (ev: MapLayerMouseEvent) => {
@@ -209,7 +235,7 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
       features: located.map((e) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [e.lon!, e.lat!] },
-        properties: { id: e.id, color: styleOf(e.categories[0]).color },
+        properties: { id: e.id, cat: e.categories[0] in CATEGORY_STYLE ? e.categories[0] : 'outros' },
       })),
     });
     if (located.length) {
@@ -236,8 +262,10 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
           return (
             <button key={id} role="tab" aria-selected={day === id} className={day === id ? 'on' : ''} onClick={() => setDay(id)}>
               <small>{i === 0 ? 'Hoje' : i === 1 ? 'Amanhã' : WEEKDAYS[d.getDay()]}</small>
+              <i className="sep" aria-hidden="true" />
               <strong>{d.getDate()}</strong>
-              <small>{MONTHS[d.getMonth()]}</small>
+              <i className="sep" aria-hidden="true" />
+              <small className="month">{MONTHS[d.getMonth()].toUpperCase()}</small>
             </button>
           );
         })}
@@ -262,7 +290,7 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
           <div className="rows" key={`${day}|${focusIds?.join() ?? ''}`}>
             {listed.map((e, i) => (
               <div key={e.id} onMouseEnter={() => setHoverId(e.id)} onMouseLeave={() => setHoverId(null)}>
-                <EventRow e={e} labels={data.categories} tag={e.categories[0]} showCity={city === ALL} active={selected?.id === e.id} index={i} onOpen={() => onSelect(e)} />
+                <EventRow e={e} labels={data.categories} tag={e.categories[0]} showCity={city === ALL} active={selected?.id === e.id} index={i} hideWhen onOpen={() => onSelect(e)} />
               </div>
             ))}
           </div>

@@ -9,6 +9,17 @@ function coords(lat, lon) {
   return la > 29 && la < 43 && lo > -32 && lo < -6 ? { lat: la, lon: lo } : { lat: null, lon: null };
 }
 
+// "ANDRÉ RIEU E A SUA ORQUESTRA" → "André Rieu e a Sua Orquestra" (títulos todos em maiúsculas cansam a leitura).
+const SMALL = new Set(['a', 'o', 'as', 'os', 'e', 'de', 'da', 'do', 'das', 'dos', 'em', 'no', 'na', 'nos', 'nas', 'com', 'por', 'para', 'à', 'ao', 'aos', 'um', 'uma']);
+function unshout(title) {
+  const letters = title.replace(/[^\p{L}]/gu, '');
+  if (letters.length < 6 || letters !== letters.toUpperCase()) return title;
+  return title
+    .toLowerCase()
+    .replace(/[\p{L}\d'’]+/gu, (w, i) => (i > 0 && SMALL.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .replace(/\b(Dj|Mc|Ii|Iii|Iv|Tv|Uk|Usa|Ccb|Meo|Lx|Ep|Lp)\b/g, (m) => m.toUpperCase());
+}
+
 export function makeEvent(meta, e) {
   const fromSource = [...new Set((e.rawCategories ?? []).map(mapCategory).filter(Boolean))];
   const categories = fromSource.length ? fromSource : classify(e.title, e.subtitle, e.venue);
@@ -25,7 +36,7 @@ export function makeEvent(meta, e) {
     source: meta.id,
     sourceName: meta.name,
     url: e.url,
-    title: stripHtml(e.title),
+    title: unshout(stripHtml(e.title)),
     subtitle: e.subtitle ? stripHtml(e.subtitle) || null : null,
     description: e.description ? stripHtml(e.description).slice(0, 1200) || null : null,
     categories: categories.length ? categories : ['outros'],

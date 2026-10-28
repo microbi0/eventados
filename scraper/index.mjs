@@ -121,9 +121,19 @@ const isPrivate = (e) => {
   return cats.some((c) => PRIVATE_CATEGORIES.has(c)) || SCHOOL_LEVEL.test(slugify(e.title));
 };
 
-const key = (e) => `${slugify(e.title).replace(/[^a-z0-9]+/g, ' ').trim()}|${e.startDate}|${e.city}`;
+// Mesmo título com pequenas variações entre fontes ("Rigoletto, de Giuseppe Verdi" / "Rigoletto, Giuseppe Verdi").
+const titleKey = (t) =>
+  slugify(t)
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(de|da|do|das|dos|e|a|o|the)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+const key = (e) => `${titleKey(e.title)}|${e.startDate}|${e.city}`;
 const byKey = new Map();
-for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !isPrivate(e))).map(locate)) {
+// Eventos cancelados saem da agenda.
+const isCancelled = (e) => /\b(cancelad[oa]s?|anulad[oa]|cancelled|canceled)\b/.test(slugify(`${e.title} ${e.subtitle ?? ''}`));
+
+for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !isPrivate(e) && !isCancelled(e))).map(locate)) {
   if (!e.city || !e.startDate || !e.title) continue;
   const k = key(e);
   const prev = byKey.get(k);

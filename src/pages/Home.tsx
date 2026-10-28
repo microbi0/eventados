@@ -44,7 +44,7 @@ export default function Home({ data, city, onSelect, onPickPlace, onExplore }: P
     };
     // Slider: os 5 mais relevantes dos próximos 7 dias (no máximo 2 do mesmo tipo).
     const week = filterEvents(data.events, { ...base, range: 'week' });
-    const spots: Spot[] = topRelevant(week, venueSources, 5, new Set(), 2).map(({ e }) => ({ e, reasons: scoreEvent(e, venueSources).reasons }));
+    const spots: Spot[] = topRelevant(week, venueSources, 5, new Set(), Infinity, 1).map(({ e }) => ({ e, reasons: scoreEvent(e, venueSources).reasons }));
     spots.forEach((s) => shown.add(s.e.id));
     return {
       spots,

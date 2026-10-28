@@ -1,5 +1,5 @@
 // Construção de eventos no formato comum + extração de schema.org/Event (JSON-LD).
-import { classify, mapCategory } from './categories.mjs';
+import { classify, mapCategory, refineStage } from './categories.mjs';
 import { decodeEntities, splitDateTime, stripHtml } from './util.mjs';
 
 export function makeEvent(meta, e) {
@@ -7,6 +7,10 @@ export function makeEvent(meta, e) {
   const categories = fromSource.length ? fromSource : classify(e.title, e.subtitle, e.venue);
   if (!categories.length && e.fallbackCategory) categories.push(e.fallbackCategory);
   if (e.extraCategories) categories.push(...e.extraCategories.filter((c) => !categories.includes(c)));
+  if (categories.includes('palcos')) {
+    const stage = refineStage(e.title, e.subtitle, e.description, ...(e.rawCategories ?? []));
+    categories.splice(categories.indexOf('palcos'), 1, ...stage.filter((c) => !categories.includes(c)));
+  }
   let price = e.price ? String(e.price).trim() : null;
   if (price && /^\d+([.,]\d+)?$/.test(price)) price = Number(price.replace(',', '.')) === 0 ? 'Gratuito' : `${price}€`;
   return {
@@ -34,6 +38,9 @@ export function makeEvent(meta, e) {
     isFree: e.isFree ?? (price ? /gr[aá]t|livre|^0([.,]0+)?\s*€?$|free/i.test(price) : false),
     image: e.image || null,
     tickets: e.tickets || null,
+    // Sinais editoriais da fonte: "destaque" explícito e presença na homepage da agenda.
+    featured: !!e.featured,
+    promoted: !!e.promoted,
   };
 }
 

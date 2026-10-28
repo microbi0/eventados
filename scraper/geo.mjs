@@ -42,6 +42,12 @@ export function municipioAt(lat, lon) {
   return best;
 }
 
+// Retângulo envolvente do concelho [oeste, sul, este, norte], para o mapa.
+export function municipioBBox(name) {
+  const m = BY_NAME.get(slugify(name));
+  return m ? m.bbox : null;
+}
+
 // Nome de concelho reconhecido (normaliza capitalização e acentos), ou null.
 export function municipioByName(name) {
   return BY_NAME.get(slugify(name)) ?? null;

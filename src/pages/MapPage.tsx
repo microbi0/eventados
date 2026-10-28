@@ -57,6 +57,14 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
   }, [data, city, day]);
   const located = dayEvents.filter((e) => e.lat != null && e.lon != null);
 
+  // Área inicial: o concelho escolhido (limites oficiais) ou o país inteiro.
+  const placeBounds = useMemo<L.LatLngBoundsExpression>(() => {
+    const b = city !== ALL ? data.places?.[city] : null;
+    return b ? [[b[1], b[0]], [b[3], b[2]]] : PORTUGAL;
+  }, [data, city]);
+  const placeRef = useRef(placeBounds);
+  placeRef.current = placeBounds;
+
   const mapEl = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const layer = useRef<L.LayerGroup | null>(null);
@@ -64,7 +72,12 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
 
   useEffect(() => {
     if (!mapEl.current || map.current) return;
-    map.current = L.map(mapEl.current, { zoomControl: true, attributionControl: true }).fitBounds(PORTUGAL);
+    map.current = L.map(mapEl.current, { zoomControl: true, attributionControl: true, minZoom: 6, maxBounds: [[29, -32], [44, -4]] }).fitBounds(placeRef.current);
+    // O contentor só tem o tamanho final depois de pintado: sem isto o Leaflet calcula o zoom para 0×0 e mostra meio mundo.
+    requestAnimationFrame(() => {
+      map.current?.invalidateSize();
+      map.current?.fitBounds(placeRef.current, { animate: false });
+    });
     // Mosaicos do OpenStreetMap (uso moderado, com atribuição). Para muito tráfego, usar um fornecedor dedicado.
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -94,10 +107,11 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
       mk.addTo(layer.current!);
       markers.current.set(e.id, mk);
     });
+    m.invalidateSize();
     if (located.length) m.flyToBounds(L.latLngBounds(located.map((e) => [e.lat!, e.lon!] as [number, number])).pad(0.15), { maxZoom: 15, duration: 0.8 });
-    else m.flyToBounds(PORTUGAL, { duration: 0.8 });
+    else m.flyToBounds(placeBounds, { duration: 0.8 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [located]);
+  }, [located, placeBounds]);
 
   // Realça o marcador do evento sob o rato ou selecionado.
   useEffect(() => {

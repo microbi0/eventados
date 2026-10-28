@@ -2,7 +2,9 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { ArrowRight, Gift, Landmark, Search, Sparkles, Sun, CalendarRange } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import type { DateRange } from '../dates';
-import { ALL, filterEvents, topRelevant, type Hit } from '../filters';
+import { ALL, filterEvents, scoreEvent, topRelevant, type Hit } from '../filters';
+import { inPlace } from '../places';
+import Spotlight, { type Spot } from '../Spotlight';
 import { EventCard, stagger } from '../ui';
 import { styleOf } from '../categories';
 
@@ -36,7 +38,18 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
       top.forEach((h) => shown.add(h.e.id));
       return top;
     };
+    // Slider: os 5 mais relevantes de hoje (no máximo 2 do mesmo tipo); se hoje houver poucos, completa com os próximos dias.
+    let spotTitle = 'Em destaque hoje';
+    let pool = today;
+    if (topRelevant(today, venueSources, 5, new Set(), 2).length < 5) {
+      pool = filterEvents(data.events, { ...base, range: 'week' });
+      spotTitle = today.length ? 'Em destaque hoje e nos próximos dias' : 'Em destaque nos próximos dias';
+    }
+    const spots: Spot[] = topRelevant(pool, venueSources, 5, new Set(), 2).map(({ e }) => ({ e, reasons: scoreEvent(e, venueSources).reasons }));
+    spots.forEach((s) => shown.add(s.e.id));
     return {
+      spots,
+      spotTitle,
       today: take(today),
       weekend: take(weekend),
       venues: take(venues),
@@ -50,7 +63,6 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
     ev.preventDefault();
     onExplore({ query: q.trim(), range: 'all' });
   };
-  const where = city === ALL ? 'Portugal' : city;
 
   return (
     <div className="home">
@@ -58,9 +70,7 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
         <p className="eyebrow">
           <Sparkles size={16} /> {sections.monthTotal} eventos nos próximos 30 dias
         </p>
-        <h1>
-          O que fazer em <em>{where}</em>?
-        </h1>
+        <h1>O que fazer {inPlace(city)}?</h1>
         <form className="big-search" onSubmit={submit} role="search">
           <Search size={22} />
           <input type="search" placeholder="Concertos, peças, exposições, artistas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Pesquisar eventos" />
@@ -76,6 +86,8 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
           ))}
         </div>
       </section>
+
+      <Spotlight spots={sections.spots} labels={data.categories} title={sections.spotTitle} onOpen={onSelect} />
 
       <section className="home-cats">
         {Object.entries(data.categories)
@@ -94,7 +106,7 @@ export default function Home({ data, city, onSelect, onExplore }: Props) {
 
       <Shelf title="Hoje" icon={Sun} hits={sections.today} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'today' })} />
       <Shelf title="Este fim de semana" icon={CalendarRange} hits={sections.weekend} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'weekend' })} />
-      <Shelf title="Nas salas de espetáculos" icon={Landmark} hits={sections.venues} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'month', cats: ['palcos', 'musica'] })} />
+      <Shelf title="Nas salas de espetáculos" icon={Landmark} hits={sections.venues} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'month', cats: ['teatro', 'danca', 'humor', 'musica'] })} />
       <Shelf title="Gratuitos esta semana" icon={Gift} hits={sections.free} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'week', freeOnly: true })} />
     </div>
   );

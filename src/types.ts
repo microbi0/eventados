@@ -23,6 +23,8 @@ export interface EventItem {
   isFree: boolean;
   image: string | null;
   tickets: string | null;
+  featured?: boolean;
+  promoted?: boolean;
   alsoAt?: { name: string; url: string }[];
 }
 
@@ -40,5 +42,7 @@ export interface EventsData {
   updatedAt: string;
   categories: Record<string, string>;
   sources: SourceInfo[];
+  // Limites de cada concelho [oeste, sul, este, norte].
+  places?: Record<string, [number, number, number, number]>;
   events: EventItem[];
 }

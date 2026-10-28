@@ -6,7 +6,7 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
 import { stats } from './util.mjs';
-import { municipioAt, municipioByName } from './geo.mjs';
+import { municipioAt, municipioBBox, municipioByName } from './geo.mjs';
 import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
@@ -123,6 +123,8 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
   prev.lat ??= e.lat;
   prev.lon ??= e.lon;
   prev.venue ??= e.venue;
+  prev.featured ||= e.featured;
+  prev.promoted ||= e.promoted;
 }
 
 const events = [...byKey.values()].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, 'pt'));
@@ -136,8 +138,11 @@ if (ONLY) {
   }
 }
 
+// Limites de cada concelho presente (para o mapa centrar no sítio escolhido).
+const places = Object.fromEntries([...new Set(events.map((e) => e.city))].map((c) => [c, municipioBBox(c)]).filter(([, b]) => b));
+
 await mkdir(dirname(OUT), { recursive: true });
-await writeFile(OUT, JSON.stringify({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, events }));
+await writeFile(OUT, JSON.stringify({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, places, events }));
 const cities = new Set(events.map((e) => e.city));
 console.log(`→ ${events.length} eventos em ${cities.size} concelhos escritos em ${OUT}`);
 console.log(`  pedidos HTTP: ${stats.requests} · respostas em cache: ${stats.cacheHits} · não modificadas (304): ${stats.notModified} · bloqueados por robots.txt: ${stats.blockedByRobots}`);

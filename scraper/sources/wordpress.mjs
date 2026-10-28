@@ -121,6 +121,7 @@ export function tribeSource(meta) {
           price: ev.cost || null,
           image: ev.image?.sizes?.medium_large?.url ?? ev.image?.url,
           tickets: ev.website || null,
+          featured: !!ev.featured,
         });
       });
     },

@@ -23,6 +23,8 @@ async function loadContent(site) {
   const events = new Map();
   const related = {};
   const seen = new Set();
+  // Eventos escolhidos para a homepage da própria agenda: sinal editorial de relevância.
+  const onHome = new Set();
   for (const page of pages) {
     const html = page === site ? home : await fetchText(page).catch(() => '');
     for (const url of contentUrls(html)) {
@@ -33,16 +35,19 @@ async function loadContent(site) {
         if (!rep || typeof rep !== 'object') continue;
         Object.assign(related, rep.related ?? {});
         for (const item of rep.items ?? []) {
-          if ('datetime_start_date' in item) events.set(item.id, item);
+          if ('datetime_start_date' in item) {
+            events.set(item.id, item);
+            if (page === site) onHome.add(item.id);
+          }
           else related[item.id] ??= item;
         }
       }
     }
   }
-  return { events: [...events.values()], related };
+  return { events: [...events.values()], related, onHome };
 }
 
-function normalize(meta, ev, related) {
+function normalize(meta, ev, related, onHome) {
   const local = related[ev.ref_local];
   const refs = [ev.ref_seccao, ...refIds(ev.multiRef_tags_1o_nivel), ev.ref_tags_1o_nivel].filter(Boolean);
   const rawCategories = [...new Set(refs.map((id) => t(related[id]?._slug)).filter(Boolean))];
@@ -69,6 +74,8 @@ function normalize(meta, ev, related) {
     isFree: rawCategories.includes('gratuito') || undefined,
     image: raw(ev.image_image),
     tickets: /^https?:/.test(tickets) ? tickets : null,
+    featured: !!(ev.boolean_destaque || ev.boolean_destaque_agenda_municipal),
+    promoted: onHome.has(ev.id),
   });
 }
 
@@ -77,10 +84,10 @@ export function bundlrSource(meta) {
     meta,
     async scrape() {
       const today = lisbonDate();
-      const { events, related } = await loadContent(meta.url);
+      const { events, related, onHome } = await loadContent(meta.url);
       return events
         .filter((ev) => !ev.boolean_draft && ev.datetime_start_date)
-        .map((ev) => normalize(meta, ev, related))
+        .map((ev) => normalize(meta, ev, related, onHome))
         .filter((e) => e.endDate >= today);
     },
   };

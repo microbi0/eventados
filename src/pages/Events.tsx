@@ -3,6 +3,7 @@ import { CalendarDays, Gift, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
 import { ALL, filterEvents } from '../filters';
+import { inPlace } from '../places';
 import { CategoryChip, CategoryRow, DetailContent, EventCard, EventRow } from '../ui';
 import { styleOf } from '../categories';
 
@@ -104,7 +105,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
       <main className="list-col">
         <section className="hero">
           <h1>
-            Eventos{city !== ALL ? <span> em {city}</span> : <span> em Portugal</span>}
+            Eventos <span>{inPlace(city)}</span>
           </h1>
           <div className="segmented" role="tablist" aria-label="Quando">
             {DATE_RANGES.map((r) => (

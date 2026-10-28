@@ -1,7 +1,9 @@
 // Tipos de evento unificados. Cada fonte mapeia as suas categorias para estes ids.
 export const CATEGORIES = {
   musica: 'Música',
-  palcos: 'Teatro, Dança & Humor',
+  teatro: 'Teatro',
+  danca: 'Dança',
+  humor: 'Humor',
   cinema: 'Cinema',
   arte: 'Arte & Exposições',
   conversas: 'Conversas & Literatura',
@@ -27,9 +29,9 @@ const MAP = {
   // AgendaLX
   artes: 'arte',
   musica: 'musica',
-  teatro: 'palcos',
-  danca: 'palcos',
-  'stand up comedy': 'palcos',
+  teatro: 'teatro',
+  danca: 'danca',
+  'stand up comedy': 'humor',
   'visitas guiadas': 'visitas',
   cinema: 'cinema',
   ciencias: 'ciencia',
@@ -71,19 +73,22 @@ const MAP = {
   fotografia: 'arte',
   atividades: 'workshops',
   'conferencias e conversas': 'conversas',
-  circo: 'palcos',
-  musical: 'palcos',
+  circo: 'teatro',
+  musical: 'teatro',
   entretenimento: 'palcos',
   'mais novos': 'familias',
   'fabrica das artes': 'familias',
   concerto: 'musica',
   espetaculo: 'palcos',
-  comedia: 'palcos',
-  humor: 'palcos',
-  'stand-up': 'palcos',
+  comedia: 'humor',
+  humor: 'humor',
+  'stand-up': 'humor',
+  'stand up': 'humor',
+  bailado: 'danca',
+  opera: 'teatro',
   // TNSJ / Rivoli
   'medeia filmes': 'cinema',
-  'novo circo': 'palcos',
+  'novo circo': 'teatro',
   performance: 'palcos',
   'musica ': 'musica',
 };
@@ -98,10 +103,27 @@ export function mapCategory(raw) {
   return MAP[key] ?? MAP[key.replace(/\s+/g, '-')] ?? MAP[key.replace(/-/g, ' ')] ?? null;
 }
 
+// Palavras que distinguem os três tipos de artes de palco.
+const STAGE = {
+  humor: /\b(stand[- ]?up|comedy|comedia|humor|humorista|improviso|roast)\b/,
+  danca: /\b(danca|dance|bailado|ballet|coreografi\w*|flamenco|tango|hip[- ]?hop dance)\b/,
+  teatro: /\b(theatre|theater|teatro|opera|circo|musical|revista|marionetas|monologo|encenacao|dramaturgia|peca)\b/,
+};
+
+// "palcos" é uma categoria genérica de algumas fontes (secção "Palcos", "Espetáculo"…):
+// decide-se entre teatro, dança e humor pelo texto; sem pistas, fica teatro.
+export function refineStage(...texts) {
+  const s = slugify(texts.filter(Boolean).join(' '));
+  const found = ['humor', 'danca', 'teatro'].filter((id) => STAGE[id].test(s));
+  return found.length ? found : ['teatro'];
+}
+
 // Classificação por palavras-chave (título/descrição) para fontes sem categorias úteis.
 const KEYWORDS = [
   ['cinema', /\b(cinema|film|movie|screening|filme|curtas?[- ]metragens?|documentario|cineclube|sessao de cinema|ante-?estreia)\b/],
-  ['palcos', /\b(theatre|theater|comedy|dance|show|teatro|danca|bailado|ballet|stand[- ]?up|comedia|humor|opera|circo|musical|revista|espetaculo|performance|marionetas|monologo)\b/],
+  ['humor', STAGE.humor],
+  ['danca', STAGE.danca],
+  ['teatro', STAGE.teatro],
   ['musica', /\b(concerts?|live music|jam session|karaoke|singer|orchestra|concertos?|musica|fado|jazz|orquestra|sinfonic\w*|filarmonic\w*|recital|coro|tour|ao vivo|dj|rock|hip[- ]?hop|rap|pop|metal|banda|tuna|festival de musica|guitarra|piano|quarteto)\b/],
   ['arte', /\b(exhibition|art|painting|museu|museum|exposic\w*|exposição|pintura|fotografia|galeria|instalacao|escultura|ilustracao|arte contemporanea|mostra de arte)\b/],
   ['conversas', /\b(conference|talk|meetup|networking|book|conferencia|palestra|conversa|debate|livro|lancamento|literatur\w*|poesia|leitura|tertulia|colóquio|coloquio|seminario|congresso|summit|clube de leitura)\b/],

@@ -6,8 +6,9 @@ on:
   schedule:
     - cron: '30 4 * * *' # todos os dias às 04:30 UTC (madrugada em Portugal)
   # Alterações ao código também são publicadas; a recolha só corre se a última tiver mais de 20 h.
+  # "data" é atualizado diariamente pelo Umbrel (ver umbrel/README.md).
   push:
-    branches: [main]
+    branches: [main, data]
   workflow_dispatch:
     inputs:
       force:
@@ -33,7 +34,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # O código vem sempre de main, mesmo quando quem disparou foi o ramo "data".
       - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
 
       - uses: actions/setup-node@v4
         with:
@@ -52,10 +57,15 @@ jobs:
           key: scraper-cache-${{ github.run_id }}
           restore-keys: scraper-cache-
 
-      # Parte do último events.json publicado: serve de reserva se uma fonte falhar
-      # e para o travão de "no máximo uma recolha a cada 20 h".
-      - name: Obter dados publicados
-        run: curl -fsSL "${{ steps.pages.outputs.base_url }}/data/events.json" -o public/data/events.json || echo "Sem dados anteriores"
+      # Dados mais recentes: os do Umbrel (ramo "data") ou, na falta deles, os já publicados.
+      # Servem de reserva se uma fonte falhar e para o travão de "no máximo uma recolha a cada 20 h".
+      - name: Obter dados mais recentes
+        run: |
+          if git fetch --depth 1 origin data 2>/dev/null; then
+            git show origin/data:events.json > public/data/events.json && echo "Dados do Umbrel"
+          else
+            curl -fsSL "${{ steps.pages.outputs.base_url }}/data/events.json" -o public/data/events.json || echo "Sem dados anteriores"
+          fi
 
       - name: Recolher eventos
         run: node scraper/index.mjs ${{ inputs.force && '--force' || '' }}

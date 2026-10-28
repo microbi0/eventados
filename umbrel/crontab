@@ -1,0 +1,2 @@
+# Todos os dias às 04:00 (hora de Lisboa).
+0 4 * * * /usr/local/bin/eventados-sync >> /data/logs/sync.log 2>&1

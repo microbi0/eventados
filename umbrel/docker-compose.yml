@@ -1,0 +1,9 @@
+services:
+  eventados-sync:
+    build: .
+    container_name: eventados-sync
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      TZ: Europe/Lisbon

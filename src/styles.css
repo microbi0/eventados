@@ -1037,104 +1037,30 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   }
 }
 
-/* Cartão de anúncio na grelha de eventos */
+/* Cartão de anúncio na grelha de eventos (perfeitamente integrado com os cartões normais) */
 .card.ad-card {
-  border: 1.5px dashed var(--soft-line);
   background: var(--surface);
+  cursor: pointer;
 }
-.ad-media {
-  background: linear-gradient(135deg, var(--surface-2) 0%, var(--surface) 100%);
-  display: grid;
-  place-items: center;
-  position: relative;
-}
-.ad-media-art {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  width: 100%;
-}
-.ad-icon-halo {
-  display: grid;
-  place-items: center;
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 8px 20px rgb(0 0 0 / 0.08);
-}
-.ad-floating-badge {
+.ad-badge-overlay {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  padding: 4px 10px;
+  top: 10px;
+  right: 10px;
+  padding: 3px 8px;
   border-radius: var(--pill);
-  background: var(--text);
-  color: var(--bg);
-  font-size: 11px;
+  background: rgb(0 0 0 / 0.65);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.ad-meta-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  margin-bottom: 4px;
-}
-.tag.ad-tag {
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 700;
   letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
-.ad-sublabel {
-  font-size: 11.5px;
-  color: var(--muted);
-  font-weight: 500;
-}
-.ad-action-row {
-  margin-top: 6px;
-}
-.ad-learn-more {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-}
-.card.ad-card:hover .ad-learn-more {
-  color: var(--text);
+  z-index: 2;
 }
 
 /* Linha de anúncio compacta (modo row) */
 .row.ad-row {
-  border: 1.5px dashed var(--soft-line);
-}
-.ad-thumb-placeholder {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  background: var(--surface-2);
-  color: var(--text);
-}
-.row-badge.ad-badge {
-  background: var(--text);
-  color: var(--bg);
-}
-.ad-row-tags {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 2px;
+  cursor: pointer;
 }
 
 /* Botão de aviso na summary quando a categoria restringe o total encontrado */

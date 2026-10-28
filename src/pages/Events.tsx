@@ -149,6 +149,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
           {(() => {
             let totalRendered = 0;
+            const AD_INTERVAL = 30;
             return groups.map((g, gi) => (
               <section key={g.day} className="day">
                 {(query.trim() || (range !== 'today' && range !== 'tomorrow')) && (
@@ -160,7 +161,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                 <div className={compact ? 'rows' : 'grid'}>
                   {g.items.map(({ e }, i) => {
                     const itemIndex = totalRendered++;
-                    const showAd = (itemIndex + 1) % 6 === 0;
+                    const showAd = (itemIndex + 1) % AD_INTERVAL === 0;
                     const props = {
                       e,
                       labels: data.categories,
@@ -173,7 +174,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                     return (
                       <Fragment key={e.id}>
                         {compact ? <EventRow {...props} /> : <EventCard {...props} />}
-                        {showAd && <EventAdCard compact={compact} index={i + 1} />}
+                        {showAd && <EventAdCard compact={compact} index={itemIndex + 1} />}
                       </Fragment>
                     );
                   })}

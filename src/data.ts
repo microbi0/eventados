@@ -6,7 +6,8 @@ const REMOTE = import.meta.env.VITE_DATA_URL as string | undefined;
 const BUNDLED = './data/events.json';
 
 async function get(url: string): Promise<EventsData> {
-  const res = await fetch(url, { cache: 'no-cache' });
+  const cacheBust = url.includes('?') ? `&_t=${Date.now()}` : `?_t=${Date.now()}`;
+  const res = await fetch(`${url}${cacheBust}`, { cache: 'no-cache' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }

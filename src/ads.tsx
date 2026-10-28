@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Megaphone, ExternalLink, Info } from 'lucide-react';
+import { Sparkles, Megaphone, ExternalLink, MapPin, CalendarDays } from 'lucide-react';
 
 declare global {
   interface Window {
@@ -138,32 +138,42 @@ export function HomeAdBanner() {
   );
 }
 
+const AD_COVERS = [
+  'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=800&auto=format&fit=crop&q=80',
+];
+
 /**
  * 2. Cartão de Anúncio entre os eventos (idêntico visualmente a um EventCard)
  */
 export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?: number }) {
   const hasSlot = Boolean(ADS_CONFIG.slots.eventsFeed);
+  const coverImage = AD_COVERS[Math.floor(index / 30) % AD_COVERS.length] || AD_COVERS[0];
 
   if (compact) {
-    // Formato Linha (compacto quando o detalhe lateral está aberto)
+    // Formato Linha (compacto quando o detalhe lateral está aberto - idêntico a EventRow)
     return (
-      <article className="row ad-row" style={{ animationDelay: `${index * 30}ms` }} aria-label="Anúncio patrocinado">
-        <div className="row-thumb ad-thumb">
-          <div className="ad-thumb-placeholder">
-            <Sparkles size={22} strokeWidth={1.75} />
-          </div>
-          <span className="row-badge ad-badge" title="Patrocinado">
-            <Info size={13} />
+      <article className="row ad-row" style={{ animationDelay: `${(index % 30) * 30}ms` }} aria-label="Anúncio patrocinado">
+        <div className="row-thumb">
+          <img src={coverImage} alt="Patrocinado" loading="lazy" />
+          <span className="row-badge" style={{ background: '#fef3c7', color: '#92400e' }} title="Patrocinado">
+            <Sparkles size={13} />
           </span>
         </div>
         <div className="row-body">
-          <div className="ad-row-tags">
-            <span className="tag ad-tag">Patrocinado</span>
-            <small className="ad-sublabel">Google Ads</small>
-          </div>
-          <h3>Espaço Patrocinado</h3>
+          <h3>Destaques Culturais & Sugestões</h3>
           <p className="row-meta">
-            <span>Destaque promovido para eventos, cultura e lazer</span>
+            <span>
+              <Sparkles size={14} />
+              Patrocinado
+            </span>
+          </p>
+          <p className="row-meta">
+            <span>
+              <MapPin size={14} />
+              Portugal · Google Ads
+            </span>
           </p>
           {hasSlot && (
             <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layout="in-article" />
@@ -173,37 +183,31 @@ export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?:
     );
   }
 
-  // Formato Cartão (grelha normal)
+  // Formato Cartão (grelha normal - idêntico a EventCard)
   return (
-    <article className="card ad-card" style={{ animationDelay: `${index * 45}ms` }} aria-label="Anúncio patrocinado">
-      <div className="media ad-media">
-        <div className="ad-media-art">
-          <div className="ad-icon-halo">
-            <Sparkles size={38} strokeWidth={1.5} />
-          </div>
-          <div className="ad-floating-badge">
-            <span>Patrocinado</span>
-          </div>
-        </div>
-
-        {/* Injeção real do AdSense quando o bloco estiver definido */}
+    <article className="card ad-card" style={{ animationDelay: `${(index % 30) * 45}ms` }} aria-label="Anúncio patrocinado">
+      <div className="media">
+        <img src={coverImage} alt="Patrocinado" loading="lazy" />
+        <span className="ad-badge-overlay">Patrocinado</span>
         {hasSlot && (
           <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layoutKey="-fb+5w+4e-db+86" className="ad-card-ins" />
         )}
       </div>
 
       <div className="body">
-        <div className="ad-meta-row">
-          <span className="tag ad-tag">Anúncio</span>
-          <span className="ad-sublabel">Google Ads</span>
-        </div>
-        <h3>Sugestão Patrocinada</h3>
-        <p className="subtitle">Descobre serviços, marcas e eventos em destaque na tua região.</p>
-        <div className="ad-action-row">
-          <span className="ad-learn-more">
-            Patrocinado <ExternalLink size={13} />
-          </span>
-        </div>
+        <span className="tag" style={{ background: '#fef3c7', color: '#92400e' }}>
+          <Sparkles size={14} />
+          Patrocinado
+        </span>
+        <h3>Destaques Culturais & Experiências em Portugal</h3>
+        <p className="meta-row">
+          <MapPin size={16} strokeWidth={2.2} />
+          <span>Portugal · Google Ads</span>
+        </p>
+        <p className="meta-row">
+          <CalendarDays size={16} strokeWidth={2.2} />
+          <span>Sugestão recomendada</span>
+        </p>
       </div>
     </article>
   );

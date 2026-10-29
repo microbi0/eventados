@@ -25,7 +25,7 @@ export interface EventItem {
   tickets: string | null;
   featured?: boolean;
   promoted?: boolean;
-  alsoAt?: { name: string; url: string }[];
+  alsoAt?: { name: string; source?: string; url: string }[];
 }
 
 export interface SourceInfo {

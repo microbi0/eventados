@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { ArrowUpRight, CalendarDays, CalendarPlus, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
 import type { EventItem } from './types';
-import { formatSpan, startMinutes } from './dates';
+import { formatSpan, oneTime, startMinutes } from './dates';
 import { styleOf } from './categories';
 import { ALL, normalize } from './filters';
 
@@ -57,10 +57,10 @@ export function WhenRow({ e }: { e: EventItem }) {
     <p className="meta-row when">
       <CalendarDays size={16} strokeWidth={2.2} />
       <span>{formatSpan(e)}</span>
-      {e.timesText && (
+      {oneTime(e.timesText) && (
         <>
           <Clock size={16} strokeWidth={2.2} />
-          <span>{e.timesText}</span>
+          <span>{oneTime(e.timesText)}</span>
         </>
       )}
     </p>
@@ -137,10 +137,10 @@ export function EventRow({ e, labels, tag, showCity, active, index = 0, hideWhen
             <CalendarDays size={14} />
             {formatSpan(e)}
           </span>
-          {e.timesText && (
+          {oneTime(e.timesText) && (
             <span>
               <Clock size={14} />
-              {e.timesText}
+              {oneTime(e.timesText)}
             </span>
           )}
         </p>}
@@ -358,9 +358,9 @@ export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Re
             {formatSpan(e)}
             {e.datesText && e.datesText !== formatSpan(e) && <small>{e.datesText}</small>}
           </Fact>
-          {e.timesText && (
+          {oneTime(e.timesText) && (
             <Fact icon={Clock} label="Hora">
-              {e.timesText}
+              {oneTime(e.timesText)}
             </Fact>
           )}
           <Fact icon={Euro} label="Preço">

@@ -6,7 +6,7 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
 import { stats } from './util.mjs';
-import { normalizePrice } from './event.mjs';
+import { normalizePrice, normalizeTime } from './event.mjs';
 import { municipioAt, municipioBBox, municipioByName, municipioInText } from './geo.mjs';
 import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde, fnac } from './sources/bundlr.mjs';
@@ -88,7 +88,7 @@ if (ONLY) {
   const active = new Set(SOURCES.map((x) => x.meta.id));
   const kept = previous.filter((e) => !ONLY.includes(e.source) && active.has(e.source));
   const activeNames = new Set(SOURCES.map((x) => x.meta.name));
-  for (const e of kept) if (e.alsoAt) e.alsoAt = e.alsoAt.filter((x) => activeNames.has(x.name) || !/^[A-Z]/.test(x.name));
+  for (const e of kept) if (e.alsoAt) e.alsoAt = e.alsoAt.filter((x) => (x.source ? active.has(x.source) : activeNames.has(x.name) || !/^[A-Z]/.test(x.name)));
   results.push({ list: kept, info: null });
 }
 
@@ -227,7 +227,7 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
     }
   }
   prev.alsoAt ??= [];
-  prev.alsoAt.push({ name: e.sourceName, url: e.tickets ?? e.url });
+  prev.alsoAt.push({ name: e.sourceName, source: e.source, url: e.tickets ?? e.url });
   prev.image ??= e.image;
   prev.price ??= e.price;
   prev.lat ??= e.lat;
@@ -242,7 +242,18 @@ const events = [...byKey.values()].sort((a, b) => a.startDate.localeCompare(b.st
 // Preço em formato único para todas as fontes ("25€", "15€ – 25€", "Gratuito"), mesmo as que não usam makeEvent.
 for (const e of events) {
   e.price = normalizePrice(e.price);
+  e.timesText = normalizeTime(e.timesText);
   if (e.price === 'Gratuito') e.isFree = true;
+}
+
+// Links alternativos com o nome da sala, não da fonte: uma agência ou agenda que anuncia o concerto no Coliseu
+// aparece como "Coliseu dos Recreios". Se a própria sala tiver link, fica só esse.
+for (const e of events) {
+  if (!e.alsoAt?.length) continue;
+  const links = e.alsoAt.filter((a) => a.url !== e.url);
+  const own = links.filter((a) => SOURCE_KIND[a.source] === 'venue');
+  e.alsoAt = own.length ? own : links.slice(0, 1).map((a) => ({ ...a, name: e.venue ?? a.name }));
+  if (!e.alsoAt.length) delete e.alsoAt;
 }
 
 // Eventos sem imagem herdam a de outro evento com o mesmo nome (datas de digressão de agências vêm muitas vezes

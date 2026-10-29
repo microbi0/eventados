@@ -24,6 +24,14 @@ function unshout(title) {
 
 // Preço só com valores e símbolos: "25€", "15€ – 25€", "Gratuito". Texto de descontos, notas, contactos… fica de fora.
 // Valores são os que vêm junto de "€"/"eur" (ou um número sozinho, ex.: "12"); percentagens não contam.
+// Só uma hora ("dom: 21h", "21h00 às 23h" → "21h"); textos sem horas desaparecem, menos "vários horários".
+export function normalizeTime(text) {
+  if (!text) return null;
+  const m = text.match(/\b([01]?\d|2[0-3])\s*[hH:]\s*([0-5]\d)?(?!\d)/);
+  if (!m) return /vários horários/i.test(text) ? text : null;
+  return `${Number(m[1])}h${m[2] && m[2] !== '00' ? m[2] : ''}`;
+}
+
 export function normalizePrice(raw) {
   if (raw == null) return null;
   const text = stripHtml(String(raw)).replace(/\s+/g, ' ').trim();

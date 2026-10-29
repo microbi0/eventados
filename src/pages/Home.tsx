@@ -22,7 +22,12 @@ export default function Home({ data, city, onSelect, onPickPlace, onExplore }: P
   const [q, setQ] = useState('');
   // Destaque ativo no slider: a sua imagem desfocada é o fundo do topo da página.
   const [active, setActive] = useState<EventItem | null>(null);
-  const onActive = useCallback((e: EventItem) => setActive(e), []);
+  // Camadas do fundo: a nova imagem aparece devagar por cima da anterior (crossfade longo).
+  const [layers, setLayers] = useState<{ key: number; src: string }[]>([]);
+  const onActive = useCallback((e: EventItem) => {
+    setActive(e);
+    if (e.image) setLayers((l) => [...l.slice(-2), { key: (l.at(-1)?.key ?? 0) + 1, src: e.image! }]);
+  }, []);
   const tone = useTone(active);
   const venueSources = useMemo(() => new Set(data.sources.filter((s) => s.kind === 'venue').map((s) => s.id)), [data]);
 
@@ -71,7 +76,9 @@ export default function Home({ data, city, onSelect, onPickPlace, onExplore }: P
       >
         {/* fundo: a imagem do destaque ativo, desfocada, com rampas até à cor da página */}
         <div className="home-backdrop" aria-hidden="true">
-          {active?.image && <img key={active.id} src={active.image} alt="" />}
+          {layers.map((l) => (
+            <img key={l.key} src={l.src} alt="" />
+          ))}
         </div>
         <section className="home-hero">
           <h1>

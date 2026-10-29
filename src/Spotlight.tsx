@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { ArrowRight, MapPin } from 'lucide-react';
 import type { EventItem } from './types';
 import { styleOf } from './categories';
 import { FreeBadge, MetaRow, Placeholder, WhenRow } from './ui';
@@ -69,11 +69,13 @@ export function useTone(e: EventItem | null) {
   return tone;
 }
 
-// Slider dos eventos mais relevantes da semana: avança sozinho, pausa com o rato/foco, aceita deslizar no telemóvel.
+// Slider dos eventos mais relevantes da semana: avança sozinho, pausa com o rato/foco, arrasta-se com o rato ou o dedo.
 export default function Spotlight({ spots, title, onOpen, onActive }: { spots: Spot[]; title: string; onOpen: (e: EventItem) => void; onActive?: (e: EventItem) => void }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  const startX = useRef<number | null>(null);
+  // Arrastar (rato ou dedo): o slider segue o ponteiro e, ao largar, muda de slide ou volta ao sítio.
+  const drag = useRef<{ x: number; t: number; w: number; moved: boolean } | null>(null);
+  const [dx, setDx] = useState<number | null>(null);
   const n = spots.length;
 
   const go = useCallback((i: number) => setIndex(((i % n) + n) % n), [n]);
@@ -85,10 +87,10 @@ export default function Spotlight({ spots, title, onOpen, onActive }: { spots: S
   }, [index, spots, onActive]);
 
   useEffect(() => {
-    if (paused || n < 2) return;
+    if (paused || dx != null || n < 2) return;
     const t = window.setTimeout(() => go(index + 1), INTERVAL);
     return () => window.clearTimeout(t);
-  }, [index, paused, n, go]);
+  }, [index, paused, dx, n, go]);
 
   if (!n) return null;
 
@@ -105,27 +107,53 @@ export default function Spotlight({ spots, title, onOpen, onActive }: { spots: S
         if (ev.key === 'ArrowRight') go(index + 1);
         if (ev.key === 'ArrowLeft') go(index - 1);
       }}
-      onPointerDown={(ev) => (startX.current = ev.clientX)}
-      onPointerUp={(ev) => {
-        if (startX.current == null) return;
-        const dx = ev.clientX - startX.current;
-        startX.current = null;
-        if (Math.abs(dx) > 50) go(index + (dx < 0 ? 1 : -1));
-      }}
     >
-      <div className="spot-viewport">
-        <div className="spot-track" style={{ transform: `translateX(-${index * 100}%)` }}>
+      <div
+        className={`spot-viewport${dx != null ? ' dragging' : ''}`}
+        onPointerDown={(ev) => {
+          if (ev.button !== 0 || n < 2) return;
+          drag.current = { x: ev.clientX, t: ev.timeStamp, w: ev.currentTarget.offsetWidth, moved: false };
+        }}
+        onPointerMove={(ev) => {
+          const d = drag.current;
+          if (!d) return;
+          let move = ev.clientX - d.x;
+          if (!d.moved) {
+            if (Math.abs(move) < 6) return;
+            d.moved = true;
+            ev.currentTarget.setPointerCapture(ev.pointerId);
+          }
+          // resistência nas pontas
+          if ((index === 0 && move > 0) || (index === n - 1 && move < 0)) move /= 3;
+          setDx(move);
+        }}
+        onPointerUp={(ev) => {
+          const d = drag.current;
+          if (!d?.moved) return void (drag.current = null);
+          const move = ev.clientX - d.x;
+          const speed = move / Math.max(1, ev.timeStamp - d.t);
+          const next = Math.abs(move) > d.w * 0.15 || Math.abs(speed) > 0.5 ? index + (move < 0 ? 1 : -1) : index;
+          setDx(null);
+          if (next >= 0 && next < n) go(next);
+          // o clique que vem a seguir ao largar não deve abrir o evento
+          window.setTimeout(() => (drag.current = null));
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+          setDx(null);
+        }}
+        onClickCapture={(ev) => {
+          if (drag.current?.moved) {
+            ev.preventDefault();
+            ev.stopPropagation();
+          }
+        }}
+      >
+        <div className="spot-track" style={{ transform: `translateX(calc(${-index * 100}% + ${dx ?? 0}px))` }}>
           {spots.map(({ e }, i) => (
             <Slide key={e.id} e={e} active={i === index} label={`${i + 1} de ${n}`} onOpen={() => onOpen(e)} />
           ))}
         </div>
-
-        <button className="spot-arrow prev" onClick={() => go(index - 1)} aria-label="Anterior">
-          <ChevronLeft size={22} />
-        </button>
-        <button className="spot-arrow next" onClick={() => go(index + 1)} aria-label="Seguinte">
-          <ChevronRight size={22} />
-        </button>
 
         <div className="spot-dots" role="tablist" aria-label="Escolher destaque">
           {spots.map(({ e }, i) => (

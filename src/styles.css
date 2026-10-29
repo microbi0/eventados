@@ -550,12 +550,12 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   z-index: -1;
   overflow: hidden;
   background: rgb(var(--tone));
-  transition: background 1s var(--ease);
+  transition: background 2.4s var(--ease);
   /* Esbate todo o fundo para a página com uma curva suave (sem degrau no fim). */
   -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 52%, rgb(0 0 0 / 0.82) 64%, rgb(0 0 0 / 0.55) 75%, rgb(0 0 0 / 0.28) 85%, rgb(0 0 0 / 0.09) 93%, transparent 100%);
   mask-image: linear-gradient(180deg, #000 0%, #000 52%, rgb(0 0 0 / 0.82) 64%, rgb(0 0 0 / 0.55) 75%, rgb(0 0 0 / 0.28) 85%, rgb(0 0 0 / 0.09) 93%, transparent 100%);
 }
-.home-backdrop img { position: absolute; inset: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(70px) saturate(1.5); opacity: 0.9; animation: fadeIn 1.2s var(--ease); }
+.home-backdrop img { position: absolute; inset: -10%; width: 120%; height: 120%; object-fit: cover; filter: blur(70px) saturate(1.5); opacity: 0.9; animation: fadeIn 2.4s var(--ease) both; }
 .home-backdrop::before,
 .home-backdrop::after { content: ''; position: absolute; inset: 0; }
 /* escurece (ou clareia) a imagem para o texto ler bem */
@@ -658,8 +658,11 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .spot-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .spot-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: clamp(24px, 2.4vw, 32px); font-weight: 700; }
 /* Corta só na horizontal (para os slides deslizarem); na vertical a sombra da imagem esbate-se sem corte. */
-.spot-viewport { position: relative; overflow-x: clip; overflow-y: visible; touch-action: pan-y; }
+.spot-viewport { position: relative; overflow-x: clip; overflow-y: visible; touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
 .spot-track { display: flex; transition: transform 0.9s var(--ease); }
+/* a arrastar: o slider segue o dedo/rato sem transição */
+.spot-viewport.dragging { cursor: grabbing; }
+.spot-viewport.dragging .spot-track { transition: none; }
 
 .spot {
   --ink: #fff;
@@ -755,27 +758,6 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .spot-cta:hover { gap: 14px; transform: translateY(-2px); }
 
 /* controlos em vidro desfocado sobre o slider */
-.spot-arrow {
-  position: absolute;
-  top: 50%;
-  z-index: 3;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  margin-top: -24px;
-  border-radius: 50%;
-  color: #fff;
-  background: rgb(255 255 255 / 0.16);
-  border: 1px solid rgb(255 255 255 / 0.35);
-  backdrop-filter: blur(14px) saturate(1.4);
-  -webkit-backdrop-filter: blur(14px) saturate(1.4);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 0.2);
-  transition: background 0.3s var(--ease), transform 0.3s var(--ease);
-}
-.spot-arrow:hover { background: rgb(255 255 255 / 0.3); transform: scale(1.08); }
-.spot-arrow.prev { left: 14px; }
-.spot-arrow.next { right: 14px; }
 .spot-dots {
   position: absolute;
   left: 50%;
@@ -800,7 +782,6 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   .spot-media { height: auto; width: 100%; max-width: none; }
   .spot-media img { width: 100%; height: auto; max-height: 62vh; min-width: 0; }
   .spot-info h3 { font-size: clamp(32px, 9vw, 44px); }
-  .spot-arrow { display: none; }
 }
 
 /* ---------- Mapa ---------- */

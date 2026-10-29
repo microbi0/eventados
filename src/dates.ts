@@ -77,4 +77,12 @@ export function startMinutes(e: EventItem): number {
   return m ? Number(m[1]) * 60 + Number(m[2] ?? 0) : 24 * 60;
 }
 
+// Só uma hora: "dom: 21h", "21h00 às 23h" ou "21:30; 22:00" ficam "21h" / "21h30". Textos sem hora desaparecem, menos "vários horários".
+export function oneTime(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const m = text.match(/\b([01]?\d|2[0-3])\s*[hH:]\s*([0-5]\d)?(?!\d)/);
+  if (!m) return /vários horários/i.test(text) ? text : null;
+  return `${Number(m[1])}h${m[2] && m[2] !== '00' ? m[2] : ''}`;
+}
+
 export const durationDays = (e: EventItem) => (parse(e.endDate).getTime() - parse(e.startDate).getTime()) / 86400000;

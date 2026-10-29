@@ -6,13 +6,14 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
 import { stats } from './util.mjs';
-import { municipioAt, municipioBBox, municipioByName } from './geo.mjs';
+import { municipioAt, municipioBBox, municipioByName, municipioInText } from './geo.mjs';
 import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
 import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia } from './sources/municipal.mjs';
 import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
+import { kilt } from './sources/agencies.mjs';
 
 // Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois regionais e salas).
 // Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
@@ -23,11 +24,14 @@ const SOURCES = [
   superBockArena, saDaBandeira, coliseuPorto, rivoli, tnsj, ccb, meoArena,
   campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor,
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
+  // Agências: digressões completas (por último: nos duplicados ficam os dados da sala ou agenda).
+  kilt,
 ];
 const SOURCE_KIND = {
   superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue',
   campopequeno: 'venue', coliseulisboa: 'venue', gulbenkian: 'venue', tivolibbva: 'venue', ccl: 'venue', fil: 'venue', exponor: 'venue',
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
+  kilt: 'agency',
   turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',
 };
 
@@ -80,11 +84,24 @@ if (ONLY) {
 }
 
 // Concelho e distrito: pelas coordenadas quando existem; senão pelo nome indicado pela fonte.
+// Cidades estrangeiras que aparecem em digressões (ficam de fora: o site é sobre Portugal).
+const FOREIGN = /\b(londres|london|paris|zurique|zurich|genebra|geneve|luxemburgo|bruxelas|amesterdao|berlim|madrid|barcelona|nova iorque|new york|toronto|boston|newark|sao paulo|rio de janeiro|andorra|munique|frankfurt|mancheste?r|dublin)\b/;
+
 function locate(e) {
-  const m = (e.lat != null && e.lon != null && municipioAt(e.lat, e.lon)) || municipioByName(e.city);
+  const m =
+    (e.lat != null && e.lon != null && municipioAt(e.lat, e.lon)) ||
+    municipioByName(e.city) ||
+    // Sala já conhecida de outra fonte ("Teatro Tivoli BBVA" → Lisboa).
+    municipioByName(venueCity.get(slugify(e.venue ?? ''))) ||
+    // Concelho mencionado no nome do local; o título só quando a fonte não deu localidade nenhuma
+    // (evita "Tiago Almeida" → concelho de Almeida).
+    municipioInText(`${e.city ?? ''} ${e.venue ?? ''}`) ||
+    (!e.city || e.city === e.venue ? municipioInText(e.title) : null);
   if (m) {
     e.city = m.name;
     e.district = m.district;
+  } else if (FOREIGN.test(slugify(`${e.city ?? ''} ${e.venue ?? ''}`))) {
+    e.city = null;
   }
   return e;
 }
@@ -133,15 +150,66 @@ const byKey = new Map();
 // Eventos cancelados saem da agenda.
 const isCancelled = (e) => /\b(cancelad[oa]s?|anulad[oa]|cancelled|canceled)\b/.test(slugify(`${e.title} ${e.subtitle ?? ''}`));
 
+// Sala → concelho, a partir dos eventos com localização segura (coordenadas ou concelho reconhecido).
+const venueCity = new Map();
+for (const e of results.flatMap((r) => r.list)) {
+  if (!e.venue) continue;
+  const m = (e.lat != null && e.lon != null && municipioAt(e.lat, e.lon)) || municipioByName(e.city);
+  if (m && !venueCity.has(slugify(e.venue))) venueCity.set(slugify(e.venue), m.name);
+}
+
+// "Optimista Céptico" (sala) e "Optimista Céptico – Diogo Batáguas" (agência), ou "Maior Fã – Tiago Almeida" e
+// "Tiago Almeida - Maior Fã", no mesmo dia e cidade, são o mesmo evento: o título mais curto cabe no mais longo.
+const titleWords = (t) => new Set(titleKey(t).split(' ').filter((w) => w.length > 1));
+function sameShow(a, b) {
+  if (titleKey(a) === titleKey(b)) return true;
+  const A = titleWords(a);
+  const B = titleWords(b);
+  const shared = [...A].filter((w) => B.has(w)).length;
+  return shared >= 2 && shared / Math.min(A.size, B.size) >= 0.8;
+}
+const byDayCity = new Map();
+// Dias de um evento curto (sessões em dias seguidos ficam num só evento): compara-se qualquer dia em comum.
+function dayKeys(e) {
+  if (e.dates?.length) return e.dates.slice(0, 14).map((d) => `${d}|${e.city}`);
+  const out = [];
+  for (let d = new Date(`${e.startDate}T12:00:00Z`); out.length < 7; d.setUTCDate(d.getUTCDate() + 1)) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > e.endDate) break;
+    out.push(`${iso}|${e.city}`);
+  }
+  return out;
+}
+
 for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !isPrivate(e) && !isCancelled(e))).map(locate)) {
   if (!e.city || !e.startDate || !e.title) continue;
-  const k = key(e);
-  const prev = byKey.get(k);
+  // Datas de agência só entram com concelho português reconhecido.
+  if (SOURCE_KIND[e.source] === 'agency' && !e.district) continue;
+  const days = dayKeys(e);
+  const prev = byKey.get(key(e)) ?? days.map((dc) => byDayCity.get(dc)?.find((p) => sameShow(p.title, e.title))).find(Boolean);
   if (!prev) {
-    byKey.set(k, e);
+    byKey.set(key(e), e);
+    for (const dc of days) {
+      if (!byDayCity.has(dc)) byDayCity.set(dc, []);
+      byDayCity.get(dc).push(e);
+    }
     continue;
   }
   // Duplicado: fica o da fonte prioritária, com o link de bilhetes/outra fonte como alternativa.
+  // Datas somam-se (a sala pode ter publicado só uma das noites que a agência anuncia).
+  const prevDays = dayKeys(prev).map((k) => k.slice(0, 10));
+  const newDays = dayKeys(e).map((k) => k.slice(0, 10));
+  if (prevDays.length && newDays.length && newDays.some((d) => !prevDays.includes(d))) {
+    const all = [...new Set([...prevDays, ...newDays])].sort();
+    prev.dates = all;
+    prev.startDate = all[0];
+    prev.endDate = all[all.length - 1] > prev.endDate ? all[all.length - 1] : prev.endDate;
+    for (const d of all) {
+      const dc = `${d}|${prev.city}`;
+      if (!byDayCity.has(dc)) byDayCity.set(dc, []);
+      if (!byDayCity.get(dc).includes(prev)) byDayCity.get(dc).push(prev);
+    }
+  }
   prev.alsoAt ??= [];
   prev.alsoAt.push({ name: e.sourceName, url: e.tickets ?? e.url });
   prev.image ??= e.image;

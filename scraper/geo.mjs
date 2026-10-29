@@ -48,7 +48,30 @@ export function municipioBBox(name) {
   return m ? m.bbox : null;
 }
 
-// Nome de concelho reconhecido (normaliza capitalização e acentos), ou null.
+// Concelho mencionado num texto ("A Caça ao Estripador de Lisboa" → Lisboa); nomes mais longos primeiro.
+const NAMES_BY_LENGTH = [...BY_NAME.keys()].filter((n) => n.length >= 4).sort((a, b) => b.length - a.length);
+export function municipioInText(text) {
+  const t = ` ${slugify(text).replace(/[^a-z0-9]+/g, ' ')} `;
+  const hit = NAMES_BY_LENGTH.find((n) => t.includes(` ${n.replace(/[^a-z0-9]+/g, ' ')} `));
+  return hit ? BY_NAME.get(hit) : null;
+}
+
+// Localidades/freguesias que aparecem como "cidade" nas fontes, e o concelho a que pertencem.
+const LOCALITIES = {
+  'alverca do ribatejo': 'Vila Franca de Xira', alverca: 'Vila Franca de Xira', 'povoa de santa iria': 'Vila Franca de Xira',
+  carcavelos: 'Cascais', estoril: 'Cascais', parede: 'Cascais', 'sao joao do estoril': 'Cascais',
+  alges: 'Oeiras', 'linda-a-velha': 'Oeiras', miraflores: 'Oeiras', barcarena: 'Oeiras', 'paco de arcos': 'Oeiras',
+  queluz: 'Sintra', cacem: 'Sintra', 'agualva-cacem': 'Sintra', 'rio de mouro': 'Sintra', 'mem martins': 'Sintra',
+  sacavem: 'Loures', moscavide: 'Loures', 'santa iria de azoia': 'Loures',
+  'costa da caparica': 'Almada', 'charneca da caparica': 'Almada', 'cova da piedade': 'Almada',
+  amora: 'Seixal', 'corroios': 'Seixal', ermesinde: 'Valongo', 'senhora da hora': 'Matosinhos', 'leca da palmeira': 'Matosinhos',
+  gaia: 'Vila Nova de Gaia', famalicao: 'Vila Nova de Famalicao', 'santa maria da feira': 'Santa Maria da Feira',
+  'caldas': 'Caldas da Rainha', 'vila real de santo antonio': 'Vila Real de Santo Antonio', 'quarteira': 'Loule', 'vilamoura': 'Loule',
+  'praia da rocha': 'Portimao', 'alvor': 'Portimao', 'monte gordo': 'Vila Real de Santo Antonio', 'armacao de pera': 'Silves',
+};
+
+// Nome de concelho reconhecido (normaliza capitalização e acentos), ou null; aceita também localidades conhecidas.
 export function municipioByName(name) {
-  return BY_NAME.get(slugify(name)) ?? null;
+  const key = slugify(name);
+  return BY_NAME.get(key) ?? (LOCALITIES[key] ? BY_NAME.get(slugify(LOCALITIES[key])) : null) ?? null;
 }

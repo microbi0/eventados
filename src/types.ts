@@ -34,7 +34,7 @@ export interface SourceInfo {
   url: string;
   count: number;
   ok: boolean;
-  kind?: 'agenda' | 'venue';
+  kind?: 'agenda' | 'venue' | 'regional' | 'agency';
   error?: string;
 }
 

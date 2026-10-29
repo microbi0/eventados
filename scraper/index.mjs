@@ -13,7 +13,7 @@ import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wo
 import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia } from './sources/municipal.mjs';
 import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
-import { kilt } from './sources/agencies.mjs';
+import { kilt, uguru, sonsEmTransito } from './sources/agencies.mjs';
 
 // Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois regionais e salas).
 // Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
@@ -25,13 +25,13 @@ const SOURCES = [
   campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor,
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
   // Agências: digressões completas (por último: nos duplicados ficam os dados da sala ou agenda).
-  kilt,
+  kilt, uguru, sonsEmTransito,
 ];
 const SOURCE_KIND = {
   superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue',
   campopequeno: 'venue', coliseulisboa: 'venue', gulbenkian: 'venue', tivolibbva: 'venue', ccl: 'venue', fil: 'venue', exponor: 'venue',
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
-  kilt: 'agency',
+  kilt: 'agency', uguru: 'agency', sonsemtransito: 'agency',
   turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',
 };
 
@@ -169,6 +169,13 @@ function sameShow(a, b) {
   return shared >= 2 && shared / Math.min(A.size, B.size) >= 0.8;
 }
 const byDayCity = new Map();
+// Um festival de vários dias e um concerto de um dia desse festival não são o mesmo evento
+// (só se juntam durações compatíveis: 2 noites vs 1, sim; uma semana vs 1 dia, não).
+function sameSpan(a, b) {
+  const da = dayKeys(a).length;
+  const db = dayKeys(b).length;
+  return Math.max(da, db) <= 3 || Math.abs(da - db) <= 1;
+}
 // Dias de um evento curto (sessões em dias seguidos ficam num só evento): compara-se qualquer dia em comum.
 function dayKeys(e) {
   if (e.dates?.length) return e.dates.slice(0, 14).map((d) => `${d}|${e.city}`);
@@ -186,7 +193,7 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
   // Datas de agência só entram com concelho português reconhecido.
   if (SOURCE_KIND[e.source] === 'agency' && !e.district) continue;
   const days = dayKeys(e);
-  const prev = byKey.get(key(e)) ?? days.map((dc) => byDayCity.get(dc)?.find((p) => sameShow(p.title, e.title))).find(Boolean);
+  const prev = byKey.get(key(e)) ?? days.map((dc) => byDayCity.get(dc)?.find((p) => sameShow(p.title, e.title) && sameSpan(p, e))).find(Boolean);
   if (!prev) {
     byKey.set(key(e), e);
     for (const dc of days) {

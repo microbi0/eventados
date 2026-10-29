@@ -1,10 +1,12 @@
-import { ArrowUpRight, Building2, CalendarClock, Landmark, MapPinned, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Building2, CalendarClock, Compass, Landmark, MapPinned, Mic2, ShieldCheck } from 'lucide-react';
 import type { EventsData, SourceInfo } from '../types';
 import { stagger } from '../ui';
 
 const GROUPS: { kind: NonNullable<SourceInfo['kind']>; title: string; icon: typeof Landmark; text: string }[] = [
   { kind: 'agenda', title: 'Agendas municipais', icon: Building2, text: 'Agendas culturais publicadas pelas câmaras municipais.' },
   { kind: 'venue', title: 'Salas de espetáculos', icon: Landmark, text: 'Programação publicada pelos próprios teatros, coliseus e arenas.' },
+  { kind: 'regional', title: 'Turismo regional', icon: Compass, text: 'Agendas das entidades regionais de turismo.' },
+  { kind: 'agency', title: 'Agências e promotoras', icon: Mic2, text: 'Digressões completas dos artistas, incluindo as datas em salas mais pequenas de todo o país.' },
 ];
 
 export default function About({ data }: { data: EventsData }) {

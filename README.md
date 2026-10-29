@@ -33,6 +33,11 @@ por opção.
 | | Coliseu Porto Ageas | API GraphQL do site |
 | | Teatro Municipal do Porto (Rivoli, Campo Alegre), Teatro Nacional São João | HTML / microdata |
 | | MEO Arena | HTML |
+| Agências | KILT, Uguru, Sons em Trânsito | HTML (digressões completas) |
+
+As agências e promotoras são a forma de apanhar as digressões: os artistas passam por dezenas de
+cine-teatros e auditórios municipais que nenhuma agenda de cidade cobre, mas a agência publica todas as datas.
+Para mais cobertura, acrescentar agências em `scraper/sources/agencies.mjs`.
 
 O concelho de cada evento é calculado a partir das coordenadas com os limites oficiais dos
 308 concelhos (GeoAPI.pt / CAOP), em `scraper/data/municipios.json`.

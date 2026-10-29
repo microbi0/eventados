@@ -229,6 +229,18 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
 }
 
 const events = [...byKey.values()].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, 'pt'));
+
+// Eventos sem imagem herdam a de outro evento com o mesmo nome (datas de digressão de agências vêm muitas vezes
+// sem cartaz, mas a mesma peça noutra sala tem): primeiro título igual, depois as mesmas palavras no título.
+const withImage = events.filter((e) => e.image);
+const imageByTitle = new Map(withImage.map((e) => [titleKey(e.title), e.image]));
+let borrowed = 0;
+for (const e of events) {
+  if (e.image) continue;
+  e.image = imageByTitle.get(titleKey(e.title)) ?? withImage.find((o) => sameShow(o.title, e.title))?.image ?? null;
+  if (e.image) borrowed++;
+}
+if (borrowed) console.log(`  imagens herdadas de eventos com o mesmo nome: ${borrowed}`);
 const sources = results.map((r) => r.info).filter(Boolean).map((s) => ({ ...s, kind: SOURCE_KIND[s.id] ?? 'agenda' }));
 if (ONLY) {
   try {

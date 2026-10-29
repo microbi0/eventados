@@ -1,4 +1,5 @@
 import type { EventItem } from './types';
+import { inArea } from './places';
 import { type DateRange, durationDays, firstOccurrence, rangeBounds, startMinutes } from './dates';
 
 export const ALL = 'all';
@@ -55,7 +56,7 @@ export function filterEvents(events: EventItem[], f: Filters): Hit[] {
   const [from, to] = rangeBounds(q ? 'all' : f.range);
   const out: Hit[] = [];
   for (const e of events) {
-    if (f.city !== ALL && e.city !== f.city) continue;
+    if (!inArea(e, f.city)) continue;
     if (f.freeOnly && !e.isFree) continue;
     if (f.categories?.length && !e.categories.some((c) => f.categories!.includes(c))) continue;
     if (q && !matchesQuery(e, q)) continue;

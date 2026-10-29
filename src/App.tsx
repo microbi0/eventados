@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { House, Info, LayoutList, Map as MapIcon, MapPin, X } from 'lucide-react';
+import { Bookmark, House, Info, LayoutList, Map as MapIcon, MapPin, X } from 'lucide-react';
 import type { EventItem, EventsData } from './types';
 import { loadEvents } from './data';
 import type { DateRange } from './dates';
@@ -12,11 +12,16 @@ import Home from './pages/Home';
 import Events from './pages/Events';
 import MapPage from './pages/MapPage';
 import About from './pages/About';
+import MyEvents from './pages/MyEvents';
+import Nav, { type NavItem } from './Nav';
+import { applyPrefs, usePersonal } from './personal';
+import { setAreaRadius } from './places';
 
-const NAV: { id: Page; label: string; icon: typeof House }[] = [
+const NAV: (NavItem & { short?: string })[] = [
   { id: 'home', label: 'Home', icon: House },
   { id: 'eventos', label: 'Eventos', icon: LayoutList },
   { id: 'mapa', label: 'Mapa', icon: MapIcon },
+  { id: 'meus', label: 'Os meus eventos', short: 'Os meus', icon: Bookmark },
   { id: 'sobre', label: 'Sobre', icon: Info },
 ];
 
@@ -25,6 +30,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [page, go] = useHashPage();
   const [city, setCity] = usePersisted('city', ALL);
+  // Raio (km) à volta do concelho escolhido; 0 = só o concelho.
+  const [radius, setRadius] = usePersisted('radius', 0);
+  setAreaRadius(city === ALL ? 0 : radius);
+  const { prefs, visit } = usePersonal();
   // Filtros da página Eventos (a Home pode pré-defini-los).
   const [cats, setCats] = usePersisted<string[]>('categories', []);
   const [range, setRange] = usePersisted<DateRange>('range', 'week');
@@ -48,6 +57,7 @@ export default function App() {
   useEffect(() => initAnalytics(), []);
   useEffect(() => trackPage(page, document.title), [page]);
   useEffect(() => {
+    if (selected) visit(selected);
     if (selected) trackEvent('view_item', { item_id: selected.id, item_name: selected.title, item_category: selected.categories[0], city: selected.city });
   }, [selected]);
   const answerConsent = (v: 'granted' | 'denied') => {
@@ -84,15 +94,18 @@ export default function App() {
     };
   }, [selected, pickingCity, page, go]);
 
-  const cities = useMemo<City[]>(() => {
-    const counts = new Map<string, City>();
-    data?.events.forEach((e) => {
-      const c = counts.get(e.city) ?? { name: e.city, n: 0, district: e.district };
-      c.n++;
-      counts.set(e.city, c);
-    });
-    return [...counts.values()].sort((a, b) => b.n - a.n);
-  }, [data]);
+  // Preferências pessoais (só estes sítios/tipos, sítios/tipos escondidos) valem para o site todo.
+  const prefEvents = useMemo(() => (data ? applyPrefs(data.events, prefs) : []), [data, prefs]);
+  const cities = useMemo<City[]>(() => countCities(prefEvents), [prefEvents]);
+  const allCities = useMemo<City[]>(() => countCities(data?.events ?? []), [data]);
+
+  // "Só gratuitos" vale para a app inteira (Home, Eventos e Mapa). Um objeto novo quando muda o raio,
+  // para as páginas voltarem a filtrar.
+  const shown = useMemo(
+    () => (data ? { ...data, events: freeOnly ? prefEvents.filter((e) => e.isFree) : prefEvents } : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, prefEvents, freeOnly, radius, city],
+  );
 
   const pickCity = (c: string) => {
     setCity(c);
@@ -102,11 +115,9 @@ export default function App() {
   const closeDetail = useCallback(() => setSelected(null), []);
 
   if (error) return <div className="state">Não foi possível carregar os eventos.<br /><small>{error}</small></div>;
-  if (!data) return <div className="state"><span className="loader" />A carregar eventos…</div>;
+  if (!data || !shown) return <div className="state"><span className="loader" />A carregar eventos…</div>;
 
-  const cityLabel = city === ALL ? 'Todo o país' : city;
-  // "Só gratuitos" vale para a app inteira (Home, Eventos e Mapa).
-  const shown = freeOnly ? { ...data, events: data.events.filter((e) => e.isFree) } : data;
+  const cityLabel = city === ALL ? 'Todo o país' : radius ? `${city} · ${radius} km` : city;
   const freeToggle = (
     <button className={freeOnly ? 'free-toggle on' : 'free-toggle'} role="switch" aria-checked={freeOnly} aria-label="Só eventos grátis" onClick={() => setFreeOnly(!freeOnly)}>
       <span className="free-toggle-label">Grátis</span>
@@ -124,19 +135,10 @@ export default function App() {
           <a className="brand" href="#/" onClick={() => go('home')} aria-label="Eventados — início">
             Eventados
           </a>
-          {sidebar && (
-            <nav className="nav" aria-label="Menu">
-              {NAV.map(({ id, label, icon: Icon }) => (
-                <button key={id} className={page === id ? 'on' : ''} onClick={() => go(id)} aria-current={page === id ? 'page' : undefined}>
-                  <Icon size={17} />
-                  {label}
-                </button>
-              ))}
-            </nav>
-          )}
+          {sidebar && <Nav items={NAV} page={page} go={go} />}
           <div className="header-tools">{freeToggle}</div>
           {sidebar ? (
-            <CityDropdown cities={cities} total={data.events.length} current={city} label={cityLabel} onPick={pickCity} />
+            <CityDropdown cities={cities} total={prefEvents.length} current={city} label={cityLabel} onPick={pickCity} radius={radius} onRadius={setRadius} />
           ) : (
             <button className="city-btn" onClick={() => setPickingCity(true)}>
               <MapPin size={16} strokeWidth={2.2} />
@@ -179,15 +181,16 @@ export default function App() {
           />
         )}
         {page === 'mapa' && <MapPage data={shown} city={city} selected={selected} onSelect={setSelected} />}
+        {page === 'meus' && <MyEvents data={data} shown={shown.events} cities={allCities} onSelect={setSelected} />}
         {page === 'sobre' && <About data={data} />}
       </div>
 
       {!sidebar && (
         <nav className="tabbar" aria-label="Menu">
-          {NAV.map(({ id, label, icon: Icon }) => (
+          {NAV.map(({ id, label, short, icon: Icon }) => (
             <button key={id} className={page === id ? 'on' : ''} onClick={() => go(id)} aria-current={page === id ? 'page' : undefined}>
               <Icon size={21} />
-              <span>{label}</span>
+              <span>{short ?? label}</span>
             </button>
           ))}
         </nav>
@@ -201,7 +204,7 @@ export default function App() {
               <X size={20} />
             </button>
           </div>
-          <CityList cities={cities} total={data.events.length} current={city} onPick={pickCity} autoFocus />
+          <CityList cities={cities} total={prefEvents.length} current={city} onPick={pickCity} radius={radius} onRadius={setRadius} autoFocus />
         </Sheet>
       )}
 
@@ -222,4 +225,14 @@ export default function App() {
       )}
     </>
   );
+}
+
+function countCities(events: EventItem[]): City[] {
+  const counts = new Map<string, City>();
+  events.forEach((e) => {
+    const c = counts.get(e.city) ?? { name: e.city, n: 0, district: e.district };
+    c.n++;
+    counts.set(e.city, c);
+  });
+  return [...counts.values()].sort((a, b) => b.n - a.n);
 }

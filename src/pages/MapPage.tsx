@@ -8,6 +8,7 @@ import type { EventItem, EventsData } from '../types';
 import { firstOccurrence, iso } from '../dates';
 import { ALL, normalize } from '../filters';
 import { EventRow } from '../ui';
+import { inArea, radiusBounds } from '../places';
 import { CATEGORY_STYLE, styleOf } from '../categories';
 
 // O empacotador muda os caminhos internos do MapLibre: indicamos o worker explicitamente.
@@ -99,7 +100,7 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
   const [focusIds, setFocusIds] = useState<string[] | null>(null);
 
   const dayEvents = useMemo(() => {
-    const list = data.events.filter((e) => (city === ALL || e.city === city) && firstOccurrence(e, day, day));
+    const list = data.events.filter((e) => inArea(e, city) && firstOccurrence(e, day, day));
     // Eventos pontuais primeiro; exposições longas depois.
     return list.sort((a, b) => Number(a.startDate !== a.endDate) - Number(b.startDate !== b.endDate) || normalize(a.title).localeCompare(normalize(b.title)));
   }, [data, city, day]);
@@ -112,7 +113,7 @@ export default function MapPage({ data, city, selected, onSelect }: Props) {
 
   // Área inicial: o concelho escolhido (limites oficiais) ou o país inteiro.
   const placeBounds = useMemo<LngLatBoundsLike>(() => {
-    const b = city !== ALL ? data.places?.[city] : null;
+    const b = city !== ALL ? (radiusBounds(city) ?? data.places?.[city]) : null;
     return b ? [[b[0], b[1]], [b[2], b[3]]] : PORTUGAL;
   }, [data, city]);
 

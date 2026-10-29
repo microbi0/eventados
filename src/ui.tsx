@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowUpRight, CalendarDays, CalendarPlus, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
+import { ArrowUpRight, Bookmark, CalendarDays, CalendarPlus, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
 import type { EventItem } from './types';
 import { formatSpan, oneTime, startMinutes } from './dates';
 import { styleOf } from './categories';
 import { ALL, normalize } from './filters';
+import { usePersonal } from './personal';
+import { RADII } from './places';
 
 export type City = { name: string; n: number; district: string | null };
 
@@ -99,21 +101,45 @@ interface ItemProps {
   onOpen: () => void;
 }
 
+// Guardar em "Os meus eventos" (marcador; cheio quando já está guardado).
+export function SaveButton({ e, label }: { e: EventItem; label?: boolean }) {
+  const { isSaved, toggleSave } = usePersonal();
+  const on = isSaved(e.id);
+  return (
+    <button
+      className={`${label ? 'btn' : 'save-btn'}${on ? ' saved' : ''}`}
+      onClick={(ev) => {
+        ev.stopPropagation();
+        toggleSave(e);
+      }}
+      aria-pressed={on}
+      aria-label={on ? 'Remover dos meus eventos' : 'Guardar nos meus eventos'}
+      title={on ? 'Remover dos meus eventos' : 'Guardar nos meus eventos'}
+    >
+      <Bookmark size={label ? 18 : 19} fill={on ? 'currentColor' : 'none'} />
+      {label && (on ? 'Guardado' : 'Guardar')}
+    </button>
+  );
+}
+
 export function EventCard({ e, labels, tag, showCity, active, index = 0, onOpen }: ItemProps) {
   const place = placeOf(e, showCity);
   return (
-    <button className={active ? 'card on' : 'card'} onClick={onOpen} aria-pressed={active} style={stagger(index)}>
-      <div className="media">
-        {e.image ? <img src={e.image} alt="" loading="lazy" /> : <Placeholder id={tag} />}
-        {e.isFree && <FreeBadge />}
-      </div>
-      <div className="body">
-        <Tag id={tag} label={labels[tag] ?? 'Outros'} />
-        <h3>{e.title}</h3>
-        {place && <MetaRow icon={MapPin}>{place}</MetaRow>}
-        <WhenRow e={e} />
-      </div>
-    </button>
+    <div className="card-wrap" style={stagger(index)}>
+      <button className={active ? 'card on' : 'card'} onClick={onOpen} aria-pressed={active}>
+        <div className="media">
+          {e.image ? <img src={e.image} alt="" loading="lazy" /> : <Placeholder id={tag} />}
+          {e.isFree && <FreeBadge />}
+        </div>
+        <div className="body">
+          <Tag id={tag} label={labels[tag] ?? 'Outros'} />
+          <h3>{e.title}</h3>
+          {place && <MetaRow icon={MapPin}>{place}</MetaRow>}
+          <WhenRow e={e} />
+        </div>
+      </button>
+      <SaveButton e={e} />
+    </div>
   );
 }
 
@@ -182,11 +208,32 @@ export function CategoryChip({ id, label, count, active, onClick }: { id: string
   );
 }
 
-export function CityList({ cities, total, current, onPick, autoFocus }: { cities: City[]; total: number; current: string; onPick: (c: string) => void; autoFocus?: boolean }) {
+type RadiusProps = { radius: number; onRadius: (km: number) => void };
+
+// Raio à volta do concelho: só o concelho ou eventos até X km.
+export function RadiusPicker({ radius, onRadius, disabled }: RadiusProps & { disabled?: boolean }) {
+  return (
+    <div className={disabled ? 'radius off' : 'radius'} role="radiogroup" aria-label="Distância">
+      <span className="radius-label">
+        <Navigation size={14} /> {disabled ? 'Escolhe um concelho para usar o raio' : 'Distância'}
+      </span>
+      <div className="radius-chips">
+        {RADII.map((km) => (
+          <button key={km} role="radio" aria-checked={radius === km} className={radius === km ? 'on' : ''} disabled={disabled} onClick={() => onRadius(km)}>
+            {km ? `${km} km` : 'Só o concelho'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function CityList({ cities, total, current, onPick, autoFocus, radius, onRadius }: { cities: City[]; total: number; current: string; onPick: (c: string) => void; autoFocus?: boolean } & RadiusProps) {
   const [q, setQ] = useState('');
   const list = cities.filter((c) => normalize(`${c.name} ${c.district ?? ''}`).includes(normalize(q)));
   return (
     <div className="city-list">
+      <RadiusPicker radius={radius} onRadius={onRadius} disabled={current === ALL} />
       <label className="search">
         <Search size={18} />
         <input autoFocus={autoFocus} type="search" placeholder="Procurar concelho ou distrito…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -220,7 +267,7 @@ export function CityList({ cities, total, current, onPick, autoFocus }: { cities
 }
 
 // Seletor de sítio do header: botão que abre uma lista pesquisável.
-export function CityDropdown({ cities, total, current, label, onPick }: { cities: City[]; total: number; current: string; label: string; onPick: (c: string) => void }) {
+export function CityDropdown({ cities, total, current, label, onPick, radius, onRadius }: { cities: City[]; total: number; current: string; label: string; onPick: (c: string) => void } & RadiusProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -247,6 +294,8 @@ export function CityDropdown({ cities, total, current, label, onPick }: { cities
             cities={cities}
             total={total}
             current={current}
+            radius={radius}
+            onRadius={onRadius}
             autoFocus
             onPick={(c) => {
               setOpen(false);
@@ -379,6 +428,7 @@ export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Re
           <a className="btn primary" href={e.url} target="_blank" rel="noreferrer">
             Ver mais <ArrowUpRight size={18} />
           </a>
+          <SaveButton e={e} label />
           {ticketLinks.map((t) => (
             <a key={t.url} className="btn" href={t.url} target="_blank" rel="noreferrer">
               <Ticket size={18} /> {t.name}

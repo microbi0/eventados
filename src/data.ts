@@ -3,7 +3,7 @@ import type { EventsData } from './types';
 // VITE_DATA_URL aponta para o events.json publicado (ex.: GitHub Pages), para que a app Android
 // receba eventos novos sem ser reinstalada. O ficheiro incluído na build serve de reserva.
 const REMOTE = import.meta.env.VITE_DATA_URL as string | undefined;
-const BUNDLED = './data/events.json';
+const BUNDLED = '/data/events.json';
 
 async function get(url: string): Promise<EventsData> {
   const cacheBust = url.includes('?') ? `&_t=${Date.now()}` : `?_t=${Date.now()}`;

@@ -5,7 +5,7 @@ import type { EventItem, EventsData } from './types';
 import { loadEvents } from './data';
 import type { DateRange } from './dates';
 import { ALL } from './filters';
-import { useHashPage, useMediaQuery, usePersisted, type Page } from './hooks';
+import { INITIAL, useHashPage, useMediaQuery, usePersisted, type Page } from './hooks';
 import { CityDropdown, CityList, DetailContent, Sheet, type City } from './ui';
 import Home from './pages/Home';
 import Events from './pages/Events';
@@ -41,6 +41,21 @@ export default function App() {
   }, []);
 
   useEffect(() => setSelected(null), [page]);
+
+  // Chegada por uma página estática (/eventos/porto/teatro/, /evento/…): aplica o sítio, o tipo e o evento.
+  useEffect(() => {
+    if (!INITIAL) return;
+    if (INITIAL.city) setCity(INITIAL.city);
+    // Página de um tipo: só esse tipo; página de um evento ou de uma cidade: sem filtro de tipo.
+    setCats(INITIAL.cats ?? []);
+    if (INITIAL.cats || INITIAL.eventId) setRange('month');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    const id = INITIAL?.eventId;
+    const e = id && data?.events.find((x) => x.id === id);
+    if (e) setSelected(e);
+  }, [data]);
 
   // Botão "voltar" do Android fecha o que estiver aberto em vez de sair da app.
   useEffect(() => {

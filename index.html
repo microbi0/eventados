@@ -9,14 +9,26 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gabarito:wght@500;600;700;800&display=swap" />
     <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&f[]=styro@400&display=swap" />
-    <meta name="description" content="Todos os eventos de Portugal, por cidade e por tipo." />
-    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
-    <title>Eventados</title>
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+    <!--seo:start-->
+    <title>Eventados — Agenda de eventos em Portugal: concertos, teatro, humor e exposições</title>
+    <meta name="description" content="Todos os eventos em Portugal num só sítio: concertos, teatro, stand-up, exposições, cinema e atividades para famílias, organizados por cidade e por dia. Atualizado diariamente." />
+    <link rel="canonical" href="https://eventados.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Eventados" />
+    <meta property="og:locale" content="pt_PT" />
+    <meta property="og:title" content="Eventados — Agenda de eventos em Portugal" />
+    <meta property="og:description" content="Concertos, teatro, stand-up, exposições e muito mais, por cidade e por dia." />
+    <meta property="og:url" content="https://eventados.com/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Eventados","url":"https://eventados.com/","inLanguage":"pt-PT","description":"Agenda de eventos em Portugal por cidade e por tipo."}</script>
+    <!--seo:end-->
     <!-- Google AdSense -->
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1904724100833544" crossorigin="anonymous"></script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><!--ssr--></div>
+    <!--initial-->
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

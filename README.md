@@ -59,7 +59,7 @@ npm run scrape            # recolhe eventos (respeita o intervalo de 20 h)
 node scraper/index.mjs --force             # força uma recolha
 node scraper/index.mjs --only gaia,tnsj     # recolhe só algumas fontes
 npm run dev               # app em http://localhost:5173
-npm run build             # build web em dist/
+npm run build             # build web em dist/ + páginas estáticas para o Google (scripts/prerender.mjs)
 ```
 
 ### Android

@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "node node_modules/vite/bin/vite.js",
-    "build": "node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build",
+    "build": "npm run build:app && node scripts/prerender.mjs",
     "preview": "node node_modules/vite/bin/vite.js preview",
     "scrape": "node scraper/index.mjs",
-    "android:sync": "npm run build && node node_modules/@capacitor/cli/bin/capacitor sync android",
+    "android:sync": "npm run build:app && node node_modules/@capacitor/cli/bin/capacitor sync android",
     "android:open": "node node_modules/@capacitor/cli/bin/capacitor open android",
-    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug",
+    "build:app": "node node_modules/typescript/bin/tsc -b && node node_modules/vite/bin/vite.js build"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.0",

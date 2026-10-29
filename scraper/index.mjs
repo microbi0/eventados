@@ -6,12 +6,13 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
 import { stats } from './util.mjs';
+import { normalizePrice } from './event.mjs';
 import { municipioAt, municipioBBox, municipioByName, municipioInText } from './geo.mjs';
 import * as agendalx from './sources/agendalx.mjs';
-import { agendaPorto, viladoconde } from './sources/bundlr.mjs';
+import { agendaPorto, viladoconde, fnac } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
-import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia } from './sources/municipal.mjs';
-import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP } from './sources/venues.mjs';
+import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela } from './sources/municipal.mjs';
+import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 import { uguru, sonsEmTransito } from './sources/agencies.mjs';
 
@@ -24,6 +25,9 @@ const SOURCES = [
   superBockArena, saDaBandeira, coliseuPorto, rivoli, tnsj, ccb, meoArena,
   campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor,
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
+  tagv, quartelDasArtes, palmela, espacoVita,
+  // Lojas e centros comerciais
+  fnac,
   // Agências: digressões completas (por último: nos duplicados ficam os dados da sala ou agenda).
   uguru, sonsEmTransito,
 ];
@@ -31,6 +35,7 @@ const SOURCE_KIND = {
   superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue',
   campopequeno: 'venue', coliseulisboa: 'venue', gulbenkian: 'venue', tivolibbva: 'venue', ccl: 'venue', fil: 'venue', exponor: 'venue',
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
+  fnac: 'venue', tagv: 'venue', quarteldasartes: 'venue', palmela: 'agenda', espacovita: 'venue',
   uguru: 'agency', sonsemtransito: 'agency',
   turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',
 };
@@ -79,7 +84,11 @@ const selected = SOURCES.filter((s) => !ONLY || ONLY.includes(s.meta.id));
 const results = await Promise.all(selected.map(run));
 if (ONLY) {
   // Execução parcial: mantém as restantes fontes do ficheiro anterior.
-  const kept = previous.filter((e) => !ONLY.includes(e.source));
+  // (só de fontes que ainda existem: uma fonte retirada desaparece logo)
+  const active = new Set(SOURCES.map((x) => x.meta.id));
+  const kept = previous.filter((e) => !ONLY.includes(e.source) && active.has(e.source));
+  const activeNames = new Set(SOURCES.map((x) => x.meta.name));
+  for (const e of kept) if (e.alsoAt) e.alsoAt = e.alsoAt.filter((x) => activeNames.has(x.name) || !/^[A-Z]/.test(x.name));
   results.push({ list: kept, info: null });
 }
 
@@ -230,6 +239,12 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
 
 const events = [...byKey.values()].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, 'pt'));
 
+// Preço em formato único para todas as fontes ("25€", "15€ – 25€", "Gratuito"), mesmo as que não usam makeEvent.
+for (const e of events) {
+  e.price = normalizePrice(e.price);
+  if (e.price === 'Gratuito') e.isFree = true;
+}
+
 // Eventos sem imagem herdam a de outro evento com o mesmo nome (datas de digressão de agências vêm muitas vezes
 // sem cartaz, mas a mesma peça noutra sala tem): primeiro título igual, depois as mesmas palavras no título.
 const withImage = events.filter((e) => e.image);
@@ -245,7 +260,7 @@ const sources = results.map((r) => r.info).filter(Boolean).map((s) => ({ ...s, k
 if (ONLY) {
   try {
     const prevSources = JSON.parse(await readFile(OUT, 'utf8')).sources ?? [];
-    sources.push(...prevSources.filter((s) => !ONLY.includes(s.id)));
+    sources.push(...prevSources.filter((s) => !ONLY.includes(s.id) && SOURCES.some((x) => x.meta.id === s.id)));
   } catch {
     /* sem fontes anteriores */
   }

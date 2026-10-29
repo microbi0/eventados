@@ -76,6 +76,8 @@ jobs:
         env:
           # Endereço público fixo (domínio próprio, sempre em HTTPS) para a app Android ir buscar os dados.
           VITE_DATA_URL: https://eventados.com/data/events.json
+          # ID de medição do Google Analytics (público por natureza; aparece no código das páginas).
+          VITE_GA_ID: ${{ vars.GA_ID }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

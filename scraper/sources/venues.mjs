@@ -1,5 +1,5 @@
 // Salas de espetáculos com agenda própria.
-import { fetchText, postText, absUrl, lisbonDate, decodeEntities, splitDateTime } from '../util.mjs';
+import { fetchText, postText, absUrl, lisbonDate, decodeEntities, splitDateTime, stripHtml } from '../util.mjs';
 import { makeEvent } from '../event.mjs';
 import { parsePtDateRange } from '../ptdates.mjs';
 
@@ -973,5 +973,115 @@ export const auditorioCCOP = {
       }
     }
     return [...out.values()].filter((e) => e.endDate >= today);
+  },
+};
+
+// Teatro Académico de Gil Vicente (TAGV, Coimbra) — lista da temporada agrupada por mês ("out", "nov"…),
+// sem ano: deduz-se da temporada ("2026/27": set–dez de 2026, jan–ago de 2027). Os já passados vêm marcados.
+const MESES = { jan: 1, fev: 2, mar: 3, abr: 4, mai: 5, jun: 6, jul: 7, ago: 8, set: 9, out: 10, nov: 11, dez: 12 };
+export const tagv = {
+  meta: { id: 'tagv', name: 'Teatro Académico de Gil Vicente', url: 'https://tagv.pt/agenda/', city: 'Coimbra' },
+  async scrape() {
+    const today = lisbonDate();
+    // O site responde devagar (≈40 s).
+    const first = await fetchText(this.meta.url, { timeoutMs: 90_000 });
+    const season = first.match(/Temporada\s+(\d{4})\s*\/\s*\d{2,4}/)?.[1];
+    const startYear = season ? Number(season) : Number(today.slice(0, 4));
+    // Cada mês da temporada atual tem a sua página (?temporada=202627-nov, …).
+    const code = `${startYear}${String(startYear + 1).slice(2)}`;
+    const monthPages = [...new Set([...first.matchAll(new RegExp(`href="(https://tagv\\.pt/agenda/\\?temporada=${code}[^"&]*)"`, 'g'))].map((m) => decodeEntities(m[1])))];
+    const pages = [first];
+    for (const u of monthPages) pages.push(await fetchText(u, { timeoutMs: 90_000 }).catch(() => ''));
+    const out = [];
+    const seen = new Set();
+    for (const html of pages) {
+    const list = html.slice(html.indexOf('id="mostra-list"'), html.indexOf('class="grid-content'));
+    let month = null;
+    for (const li of list.split(/<li\b/).slice(1)) {
+      const m = li.match(/class="row o-mes"[\s\S]*?<p[^>]*>\s*([a-zç]{3})/i);
+      if (m) {
+        month = MESES[m[1].toLowerCase()] ?? month;
+        continue;
+      }
+      if (!month || /class="past"/.test(li)) continue;
+      const href = pickIn(li, /class="link"[^>]*href="([^"]+)"/) ?? pickIn(li, /href="(https:\/\/tagv\.pt\/agenda\/[^"?]+)"/);
+      const day = pickIn(li, /evento-dias">\s*<p>(\d{1,2})<\/p>/);
+      if (!href || !day) continue;
+      const year = month >= 8 ? startYear : startYear + 1;
+      const date = `${year}-${String(month).padStart(2, '0')}-${day.padStart(2, '0')}`;
+      if (date < today || seen.has(href)) continue;
+      seen.add(href);
+      const time = pickIn(li, /<hr>\s*<p>\s*(?:<!--[\s\S]*?-->)?\s*(\d{1,2}h\d{2})/);
+      out.push(
+        makeEvent(this.meta, {
+          id: href.split('/').filter(Boolean).pop(),
+          url: href,
+          title: decodeEntities(pickIn(li, /data-title="([^"]+)"/) ?? pickIn(li, /evento-titulo">\s*([\s\S]*?)\s*<\/h3>/) ?? ''),
+          venue: 'Teatro Académico de Gil Vicente',
+          address: 'Praça da República, Coimbra',
+          lat: 40.2093,
+          lon: -8.4198,
+          startDate: date,
+          endDate: date,
+          timesText: time,
+          rawCategories: [pickIn(li, /class="cat-link"[^>]*>\s*([^<]+?)\s*</)].filter(Boolean),
+          fallbackCategory: 'teatro',
+          image: pickIn(li, /data-picture="([^"]+)"/),
+        }),
+      );
+    }
+    }
+    return out;
+  },
+};
+
+// Espaço Vita (Braga) — WordPress: a API lista os eventos (tipo agenda_cpt); data, hora, sala e preço vêm da página.
+// A data não traz ano: deduz-se pela data de publicação (um evento é anunciado antes de acontecer).
+export const espacoVita = {
+  meta: { id: 'espacovita', name: 'Espaço Vita', url: 'https://www.espacovita.pt/agenda/', city: 'Braga' },
+  async scrape() {
+    const today = lisbonDate();
+    // Categorias do próprio site (id → nome).
+    const cats = Object.fromEntries((JSON.parse(await fetchText('https://www.espacovita.pt/wp-json/wp/v2/categoria_agenda_cpt?per_page=100&_fields=id,name').catch(() => '[]')) || []).map((c) => [c.id, decodeEntities(c.name)]));
+    const items = [];
+    for (let page = 1; page <= 5; page++) {
+      const list = JSON.parse(await fetchText(`https://www.espacovita.pt/wp-json/wp/v2/agenda_cpt?per_page=50&page=${page}&_fields=id,link,date,title,categoria_agenda_cpt`).catch(() => '[]'));
+      if (!Array.isArray(list) || !list.length) break;
+      items.push(...list);
+      // Publicados há mais de um ano já não interessam.
+      if (list.at(-1).date.slice(0, 10) < String(Number(today.slice(0, 4)) - 1) + today.slice(4)) break;
+    }
+    const out = [];
+    for (const it of items) {
+      const html = await fetchText(it.link, { cacheHours: 24 }).catch(() => '');
+      const dateText = stripHtml(pickIn(html, /class="data_hora_evento\s*">([\s\S]*?)<\/p>/) ?? '');
+      const r = parsePtDateRange(dateText, new Date(it.date));
+      if (!r) continue;
+      // Ano pela publicação: se a data cai antes da publicação, é do ano seguinte.
+      let start = r.start;
+      const pub = it.date.slice(0, 10);
+      if (start < pub) start = `${Number(start.slice(0, 4)) + 1}${start.slice(4)}`;
+      if (start < today) continue;
+      out.push(
+        makeEvent(this.meta, {
+          id: it.id,
+          url: it.link,
+          title: decodeEntities(it.title?.rendered ?? ''),
+          subtitle: stripHtml(pickIn(html, /<h1>[\s\S]*?<\/h1>\s*<h3>([\s\S]*?)<\/h3>/) ?? ''),
+          description: stripHtml(pickIn(html, /<p class="p3">([\s\S]*?)<\/p>/) ?? ''),
+          venue: `Espaço Vita – ${stripHtml(pickIn(html, /class="espaco_evento">([\s\S]*?)<\/p>/) ?? 'Auditório')}`,
+          address: 'Rua de São Domingos, 94B, Braga',
+          lat: 41.5457,
+          lon: -8.4304,
+          startDate: start,
+          endDate: start,
+          timesText: stripHtml(pickIn(html, /hora_do_evento">([\s\S]*?)<\/p>/) ?? '') || null,
+          price: stripHtml(pickIn(html, /class="preco_evento">([\s\S]*?)<\/p>/) ?? '') || null,
+          rawCategories: (it.categoria_agenda_cpt ?? []).map((id) => cats[id]).filter(Boolean),
+          image: pickIn(html, /<meta property="og:image" content="([^"]+)"/),
+        }),
+      );
+    }
+    return out;
   },
 };

@@ -17,7 +17,36 @@ function unshout(title) {
   return title
     .toLowerCase()
     .replace(/[\p{L}\d'’]+/gu, (w, i) => (i > 0 && SMALL.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
-    .replace(/\b(Dj|Mc|Ii|Iii|Iv|Tv|Uk|Usa|Ccb|Meo|Lx|Ep|Lp)\b/g, (m) => m.toUpperCase());
+    .replace(/\b(Dj|Mc|Tv|Uk|Usa|Ccb|Meo|Lx|Ep|Lp)\b/g, (m) => m.toUpperCase())
+    // numerais romanos ("XXXIV Festuna", "Ii" → "II")
+    .replace(/\b[IVXLC][ivxlc]+\b/g, (m) => (/^(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(m.toUpperCase()) ? m.toUpperCase() : m));
+}
+
+// Preço só com valores e símbolos: "25€", "15€ – 25€", "Gratuito". Texto de descontos, notas, contactos… fica de fora.
+// Valores são os que vêm junto de "€"/"eur" (ou um número sozinho, ex.: "12"); percentagens não contam.
+export function normalizePrice(raw) {
+  if (raw == null) return null;
+  const text = stripHtml(String(raw)).replace(/\s+/g, ' ').trim();
+  if (!text || !/[0-9a-z]/i.test(text)) return null;
+  const nums = [];
+  // Intervalos "6–10€", "5 a 10 euros".
+  for (const m of text.matchAll(/(\d{1,4}(?:[.,]\d{1,2})?)\s*(€)?\s*(?:–|-|a|até)\s*(\d{1,4}(?:[.,]\d{1,2})?)\s*(€|eur)?/gi)) {
+    if (!m[2] && !m[4]) continue; // sem € não é preço (pode ser "M/6 a 12 anos")
+    nums.push(Number(m[1].replace(',', '.')), Number(m[3].replace(',', '.')));
+  }
+  for (const m of text.matchAll(/(\d{1,4}(?:[.,]\d{1,2})?)\s*(?:€|eur(?:os?)?\b)|(?:€|eur)\s*(\d{1,4}(?:[.,]\d{1,2})?)/gi)) {
+    nums.push(Number((m[1] ?? m[2]).replace(',', '.')));
+  }
+  if (!nums.length && /^\d{1,4}(?:[.,]\d{1,2})?$/.test(text)) nums.push(Number(text.replace(',', '.')));
+  const fmt = (n) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')}€`;
+  if (nums.length) {
+    const lo = Math.min(...nums);
+    const hi = Math.max(...nums);
+    if (hi === 0) return 'Gratuito';
+    return lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
+  }
+  if (/gr[aá]t|entrada livre|livre|free|sem custo/i.test(text)) return 'Gratuito';
+  return null;
 }
 
 export function makeEvent(meta, e) {
@@ -29,8 +58,7 @@ export function makeEvent(meta, e) {
     const stage = refineStage(e.title, e.subtitle, e.description, ...(e.rawCategories ?? []));
     categories.splice(categories.indexOf('palcos'), 1, ...stage.filter((c) => !categories.includes(c)));
   }
-  let price = e.price ? String(e.price).trim() : null;
-  if (price && /^\d+([.,]\d+)?$/.test(price)) price = Number(price.replace(',', '.')) === 0 ? 'Gratuito' : `${price}€`;
+  const price = normalizePrice(e.price);
   return {
     id: `${meta.id}-${e.id}`,
     source: meta.id,

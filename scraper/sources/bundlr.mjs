@@ -16,10 +16,11 @@ function parseBundlr(js) {
   return JSON.parse(js.slice(js.indexOf('{'), js.lastIndexOf('}') + 1));
 }
 
-async function loadContent(site) {
+// isEvent: como reconhecer os itens de evento (cada site Bundlr dá nomes próprios aos campos).
+async function loadContent(site, { isEvent = (item) => 'datetime_start_date' in item, extraPages = [] } = {}) {
   const home = await fetchText(site);
   const sections = [...new Set([...home.matchAll(/href="(seccao\/[^"]+)"/g)].map((m) => absUrl(m[1], site)))];
-  const pages = [site, `${site}pesquisa/`, ...sections];
+  const pages = [site, `${site}pesquisa/`, ...sections, ...extraPages];
   const events = new Map();
   const related = {};
   const seen = new Set();
@@ -35,7 +36,7 @@ async function loadContent(site) {
         if (!rep || typeof rep !== 'object') continue;
         Object.assign(related, rep.related ?? {});
         for (const item of rep.items ?? []) {
-          if ('datetime_start_date' in item) {
+          if (isEvent(item)) {
             events.set(item.id, item);
             if (page === site) onHome.add(item.id);
           }
@@ -95,3 +96,67 @@ export function bundlrSource(meta) {
 
 export const agendaPorto = bundlrSource({ id: 'agendaporto', name: 'Agenda Porto', url: 'https://www.agenda-porto.pt/', city: 'Porto' });
 export const viladoconde = bundlrSource({ id: 'viladoconde', name: 'Agenda Vila do Conde', url: 'https://agenda.cm-viladoconde.pt/', city: 'Vila do Conde' });
+
+// FNAC Cultura (cultura.fnac.pt) — apresentações de livros, concertos acústicos, conversas e workshops nas lojas FNAC.
+// Também em Bundlr, com campos próprios (datetime_data_de_inicio, ref_loja…). As lojas não trazem morada: concelho por loja.
+const FNAC_STORES = {
+  'fnac chiado': ['Lisboa', 'Armazéns do Chiado'], 'fnac av roma': ['Lisboa', 'Avenida de Roma'], 'fnac colombo': ['Lisboa', 'Centro Colombo'],
+  'fnac vasco da gama': ['Lisboa', 'Centro Vasco da Gama'], 'fnac alfragide': ['Amadora', 'Alegro Alfragide'], 'fnac oeiras': ['Oeiras', 'Oeiras Parque'],
+  'fnac cascais': ['Cascais', 'CascaiShopping'], 'fnac sintra': ['Sintra', 'Fórum Sintra'], 'fnac almada': ['Almada', 'Almada Fórum'],
+  'fnac montijo': ['Montijo', 'Fórum Montijo'], 'fnac setubal': ['Setúbal', 'Alegro Setúbal'], 'fnac gaia': ['Vila Nova de Gaia', 'GaiaShopping'],
+  'fnac norteshopping': ['Matosinhos', 'NorteShopping'], 'fnac mar shopping': ['Matosinhos', 'Mar Shopping'], 'fnac alameda': ['Porto', 'Alameda Shop & Spot'],
+  'fnac santa catarina': ['Porto', 'Rua de Santa Catarina'], 'fnac braga': ['Braga', 'Braga Parque'], 'fnac guimaraes': ['Guimarães', 'GuimarãeShopping'],
+  'fnac viana do castelo': ['Viana do Castelo', 'Estação Viana'], 'fnac aveiro': ['Aveiro', 'Fórum Aveiro'], 'fnac coimbra': ['Coimbra', 'Fórum Coimbra'],
+  'fnac viseu': ['Viseu', 'Palácio do Gelo'], 'fnac leiria': ['Leiria', 'LeiriaShopping'], 'fnac evora': ['Évora', 'Évora Plaza'],
+  'fnac algarveshopping': ['Albufeira', 'AlgarveShopping'], 'fnac faro': ['Faro', 'Fórum Algarve'], 'fnac madeira': ['Funchal', 'Fórum Madeira'],
+};
+const FNAC_CATS = {
+  'cat_book-talks-estante': 'conversas', 'cat_fnac-talks': 'conversas', 'cat_fnac-sessions': 'musica', 'cat_projecao': 'cinema',
+  'cat_workshop': 'workshops', 'cat_fnac-kids': 'familias', 'cat_exposicao': 'arte', 'cat_comedy-sessions': 'humor',
+};
+const fold = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+export const fnac = {
+  meta: { id: 'fnac', name: 'FNAC Cultura', url: 'https://cultura.fnac.pt/' },
+  async scrape() {
+    const today = lisbonDate();
+    const { events, related } = await loadContent(this.meta.url, {
+      isEvent: (item) => 'datetime_data_de_inicio' in item,
+      extraPages: ['https://cultura.fnac.pt/atividades-e-exposicoes/'],
+    });
+    const out = [];
+    for (const ev of events) {
+      if (ev.boolean_inactive) continue;
+      const start = ev.datetime_data_de_inicio;
+      const end = ev.datetime_data_de_fim || start;
+      if (!start || lisbonDate(end) < today) continue;
+      const store = t(related[ev.ref_loja]?._title);
+      const place = FNAC_STORES[fold(store)];
+      if (!place) continue; // "Várias Lojas" ou loja desconhecida
+      const slug = t(ev._slug);
+      const cat = FNAC_CATS[ev.ref_categoria];
+      out.push(
+        makeEvent(this.meta, {
+          id: ev.id,
+          url: slug ? `${this.meta.url}atividades-e-exposicoes/${slug}/` : this.meta.url,
+          title: t(ev.text_display_title) || t(ev._title),
+          subtitle: t(ev.text_lead),
+          description: raw(ev.text_texto_principal),
+          city: place[0],
+          venue: `${store} (${place[1]})`,
+          startDate: lisbonDate(start),
+          endDate: lisbonDate(end),
+          datesText: t(ev.text_data_por_escrito),
+          timesText: t(ev.text_hora_por_escrito).replace(/^(\d{1,2})H$/i, '$1h00') || lisbonTime(start),
+          price: t(ev.text_tipo_de_entrada),
+          isFree: /livre|grat/i.test(t(ev.text_tipo_de_entrada)) || undefined,
+          rawCategories: [],
+          extraCategories: cat ? [cat] : [],
+          fallbackCategory: 'conversas',
+          image: raw(ev.image_imagem_principal) || null,
+        }),
+      );
+    }
+    return out;
+  },
+};

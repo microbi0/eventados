@@ -86,6 +86,11 @@ const MAP = {
   'stand up': 'humor',
   bailado: 'danca',
   opera: 'teatro',
+  conferencia: 'conversas',
+  palestra: 'conversas',
+  livro: 'conversas',
+  congresso: 'conversas',
+  gala: 'musica',
   // TNSJ / Rivoli
   'medeia filmes': 'cinema',
   'novo circo': 'teatro',

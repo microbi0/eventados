@@ -149,7 +149,9 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
           {(() => {
             let totalRendered = 0;
-            const AD_INTERVAL = 30;
+            // Anúncios no meio da lista: depois do 6.º evento e depois a cada 12 (não só no fim de cada página).
+            const AD_FIRST = 6;
+            const AD_INTERVAL = 12;
             return groups.map((g, gi) => (
               <section key={g.day} className="day">
                 {(query.trim() || (range !== 'today' && range !== 'tomorrow')) && (
@@ -161,7 +163,8 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                 <div className={compact ? 'rows' : 'grid'}>
                   {g.items.map(({ e }, i) => {
                     const itemIndex = totalRendered++;
-                    const showAd = (itemIndex + 1) % AD_INTERVAL === 0;
+                    const n = itemIndex + 1;
+                    const showAd = n >= AD_FIRST && (n - AD_FIRST) % AD_INTERVAL === 0;
                     const props = {
                       e,
                       labels: data.categories,

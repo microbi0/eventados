@@ -928,6 +928,30 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .city-list li small { font-size: 13px; opacity: 0.6; }
 .city-list .empty { padding: 14px 10px; color: var(--muted); font-size: 14px; }
 
+/* aviso de cookies de estatística */
+.consent {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: min(720px, calc(100vw - 32px));
+  padding: 14px 16px 14px 20px;
+  border-radius: 22px;
+  background: var(--glass);
+  backdrop-filter: blur(22px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.6);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 0.18);
+  transform: translateX(-50%);
+  animation: rise 0.5s var(--ease) both 1s;
+}
+.consent p { margin: 0; flex: 1; font-size: 14px; line-height: 1.45; }
+.consent div { display: flex; gap: 8px; }
+.consent .btn { flex: none; padding: 10px 16px; }
+@media (max-width: 640px) { .consent { flex-direction: column; align-items: stretch; bottom: calc(env(safe-area-inset-bottom) + 90px); } }
+
 /* ---------- animações ---------- */
 @keyframes fadeIn { from { opacity: 0; } }
 @keyframes pageIn { from { opacity: 0; transform: translateY(10px); } }

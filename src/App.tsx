@@ -6,6 +6,7 @@ import { loadEvents } from './data';
 import type { DateRange } from './dates';
 import { ALL } from './filters';
 import { INITIAL, useHashPage, useMediaQuery, usePersisted, type Page } from './hooks';
+import { analyticsEnabled, initAnalytics, setConsent, storedConsent, trackEvent, trackPage } from './analytics';
 import { CityDropdown, CityList, DetailContent, Sheet, type City } from './ui';
 import Home from './pages/Home';
 import Events from './pages/Events';
@@ -41,6 +42,18 @@ export default function App() {
   }, []);
 
   useEffect(() => setSelected(null), [page]);
+
+  // Google Analytics (com consentimento): página vista e evento aberto.
+  const [consent, setConsentState] = useState(storedConsent);
+  useEffect(() => initAnalytics(), []);
+  useEffect(() => trackPage(page, document.title), [page]);
+  useEffect(() => {
+    if (selected) trackEvent('view_item', { item_id: selected.id, item_name: selected.title, item_category: selected.categories[0], city: selected.city });
+  }, [selected]);
+  const answerConsent = (v: 'granted' | 'denied') => {
+    setConsent(v);
+    setConsentState(v);
+  };
 
   // Chegada por uma página estática (/eventos/porto/teatro/, /evento/…): aplica o sítio, o tipo e o evento.
   useEffect(() => {
@@ -190,6 +203,16 @@ export default function App() {
           </div>
           <CityList cities={cities} total={data.events.length} current={city} onPick={pickCity} autoFocus />
         </Sheet>
+      )}
+
+      {analyticsEnabled() && consent === null && (
+        <div className="consent" role="dialog" aria-label="Cookies de estatística">
+          <p>Usamos cookies para estatísticas anónimas de visitas, que nos ajudam a melhorar o site. Aceitas?</p>
+          <div>
+            <button className="btn" onClick={() => answerConsent('denied')}>Recusar</button>
+            <button className="btn primary" onClick={() => answerConsent('granted')}>Aceitar</button>
+          </div>
+        </div>
       )}
 
       {selected && !detailInColumn && (

@@ -50,7 +50,8 @@ function parseDetail(meta, url, html) {
     description: field('summary') ?? field('body'),
     // Só as categorias temáticas ("Eventos | Teatro"); "Agenda | Geral" e afins não ajudam.
     rawCategories: categories.filter((c) => !/agenda|destaque|arquivo|geral/i.test(c)),
-    venue: pick(html, /atc_location">([^<]+)/) ?? text(field('location')?.replace(/<div class="widget_label">[\s\S]*?<\/div>/, '')),
+    // Algumas câmaras deixam "Evento" no campo do local: usa-se o nome da sala (meta.venue), se houver.
+    venue: ((v) => (v && !/^evento$/i.test(v.trim()) ? v : meta.venue ?? null))(pick(html, /atc_location">([^<]+)/) ?? text(field('location')?.replace(/<div class="widget_label">[\s\S]*?<\/div>/, ''))),
     lat: geo?.[1],
     lon: geo?.[2],
     startDate: start.slice(0, 10),
@@ -66,7 +67,8 @@ export function municipalPlatform(meta) {
     meta,
     async scrape() {
       const today = lisbonDate();
-      const links = await listEventLinks(meta.url);
+      // Algumas câmaras dividem a agenda por tipo (meta.lists): juntam-se todas as listas.
+      const links = [...new Set((await Promise.all([meta.url, ...(meta.lists ?? [])].map((u) => listEventLinks(u).catch(() => [])))).flat())];
       // Páginas de detalhe mudam pouco: reutilizadas durante 7 dias.
       const events = await mapLimit(links, 3, async (url) => {
         try {
@@ -119,3 +121,13 @@ export const gaia = {
     return out.filter((e) => e.endDate >= today);
   },
 };
+
+export const quartelDasArtes = municipalPlatform({
+  id: 'quarteldasartes',
+  name: 'Quartel das Artes',
+  url: 'https://www.quarteldasartes.pt/programacao/teatro',
+  venue: 'Quartel das Artes',
+  lists: ['cinema', 'danca', 'musica', 'outros-eventos', 'stand-up-comedy'].map((t) => `https://www.quarteldasartes.pt/programacao/${t}`),
+  city: 'Oliveira do Bairro',
+});
+export const palmela = municipalPlatform({ id: 'palmela', name: 'CM Palmela', url: 'https://www.cm-palmela.pt/viver/cultura/agenda-de-eventos', city: 'Palmela' });

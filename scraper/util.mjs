@@ -54,11 +54,11 @@ function throttled(host, fn) {
   return run;
 }
 
-async function rawFetch(url, headers = {}) {
+async function rawFetch(url, headers = {}, timeoutMs = 30_000) {
   stats.requests++;
   return fetch(url, {
     headers: { 'User-Agent': UA, Accept: '*/*', 'Accept-Language': 'pt-PT,pt;q=0.9', ...headers },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 }
 
@@ -140,7 +140,7 @@ export async function allowedByRobots(url) {
 
 // ---------------------------------------------------------------- pedido principal
 // cacheHours: durante quanto tempo uma resposta guardada é usada sem contactar o servidor.
-export async function fetchText(url, { retries = 2, cacheHours = DEFAULT_CACHE_HOURS } = {}) {
+export async function fetchText(url, { retries = 2, cacheHours = DEFAULT_CACHE_HOURS, timeoutMs = 30_000 } = {}) {
   const entry = await readCache(url);
   if (entry && Date.now() - entry.at < cacheHours * 3600_000) {
     stats.cacheHits++;
@@ -155,7 +155,7 @@ export async function fetchText(url, { retries = 2, cacheHours = DEFAULT_CACHE_H
     const conditional = {};
     if (entry?.etag) conditional['If-None-Match'] = entry.etag;
     if (entry?.lastModified) conditional['If-Modified-Since'] = entry.lastModified;
-    const res = await throttled(host, () => rawFetch(url, conditional)).catch((err) => ({ error: err }));
+    const res = await throttled(host, () => rawFetch(url, conditional, timeoutMs)).catch((err) => ({ error: err }));
     if (res.status === 304 && entry) {
       stats.notModified++;
       await writeCache(url, { ...entry, at: Date.now() });

@@ -1,4 +1,4 @@
-import { ArrowUpRight, Building2, CalendarClock, Compass, Landmark, MapPinned, Mic2, ShieldCheck } from 'lucide-react';
+import { ArrowUpRight, Building2, CalendarClock, Compass, Landmark, MapPinned, Mic2, ShieldCheck, Sparkles } from 'lucide-react';
 import type { EventsData, SourceInfo } from '../types';
 import { stagger } from '../ui';
 
@@ -25,6 +25,11 @@ export default function About({ data }: { data: EventsData }) {
           O <strong>Eventados</strong> junta os eventos publicados pelas agendas municipais e pelas salas de espetáculos de Portugal e organiza-os por
           sítio, por tipo e por dia. Em vez de visitar dezenas de sites, encontras aqui o que está a acontecer perto de ti — e cada evento leva-te
           sempre à página original.
+        </p>
+        <p className="lead">
+          <strong>A curadoria é feita de forma automática.</strong> Ninguém escolhe à mão o que aparece: um programa recolhe as agendas, junta
+          os eventos repetidos em várias fontes, arruma-os por tipo e por concelho e decide os destaques com regras fixas — a dimensão da sala, se é
+          um espetáculo ao vivo, um festival ou uma digressão, ou se o evento aparece em várias agendas. Nenhum evento é pago para aparecer em destaque.
         </p>
         <div className="stats">
           <div style={stagger(0)}>
@@ -60,6 +65,14 @@ export default function About({ data }: { data: EventsData }) {
           </p>
         </article>
         <article style={stagger(2)}>
+          <Sparkles size={26} />
+          <h3>Curadoria automática</h3>
+          <p>
+            Tipos, concelhos, duplicados e destaques são decididos por regras automáticas e iguais para todos. Por isso pode haver falhas: confirma
+            sempre os detalhes no site de origem.
+          </p>
+        </article>
+        <article style={stagger(3)}>
           <MapPinned size={26} />
           <h3>Organizado por concelho</h3>
           <p>Cada evento é colocado no seu concelho a partir da localização da sala, usando os limites oficiais dos 308 concelhos.</p>

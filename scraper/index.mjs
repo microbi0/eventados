@@ -13,7 +13,7 @@ import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wo
 import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia } from './sources/municipal.mjs';
 import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
-import { kilt, uguru, sonsEmTransito } from './sources/agencies.mjs';
+import { uguru, sonsEmTransito } from './sources/agencies.mjs';
 
 // Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois regionais e salas).
 // Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
@@ -25,13 +25,13 @@ const SOURCES = [
   campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor,
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
   // Agências: digressões completas (por último: nos duplicados ficam os dados da sala ou agenda).
-  kilt, uguru, sonsEmTransito,
+  uguru, sonsEmTransito,
 ];
 const SOURCE_KIND = {
   superbockarena: 'venue', sadabandeira: 'venue', ccb: 'venue', meoarena: 'venue', coliseuporto: 'venue', tmp: 'venue', tnsj: 'venue',
   campopequeno: 'venue', coliseulisboa: 'venue', gulbenkian: 'venue', tivolibbva: 'venue', ccl: 'venue', fil: 'venue', exponor: 'venue',
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
-  kilt: 'agency', uguru: 'agency', sonsemtransito: 'agency',
+  uguru: 'agency', sonsemtransito: 'agency',
   turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',
 };
 

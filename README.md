@@ -33,7 +33,7 @@ por opção.
 | | Coliseu Porto Ageas | API GraphQL do site |
 | | Teatro Municipal do Porto (Rivoli, Campo Alegre), Teatro Nacional São João | HTML / microdata |
 | | MEO Arena | HTML |
-| Agências | KILT, Uguru, Sons em Trânsito | HTML (digressões completas) |
+| Agências | Uguru, Sons em Trânsito | HTML (digressões completas) |
 
 As agências e promotoras são a forma de apanhar as digressões: os artistas passam por dezenas de
 cine-teatros e auditórios municipais que nenhuma agenda de cidade cobre, mas a agência publica todas as datas.

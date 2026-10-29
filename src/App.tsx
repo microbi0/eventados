@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { Bookmark, House, Info, LayoutList, Map as MapIcon, MapPin, X } from 'lucide-react';
+import { Bookmark, House, Info, LayoutList, Map as MapIcon, MapPin, Mic2, X } from 'lucide-react';
 import type { EventItem, EventsData } from './types';
 import { loadEvents } from './data';
 import type { DateRange } from './dates';
@@ -13,6 +13,7 @@ import Events from './pages/Events';
 import MapPage from './pages/MapPage';
 import About from './pages/About';
 import MyEvents from './pages/MyEvents';
+import Artists from './pages/Artists';
 import Nav, { type NavItem } from './Nav';
 import { applyPrefs, usePersonal } from './personal';
 import { setAreaRadius } from './places';
@@ -20,6 +21,7 @@ import { setAreaRadius } from './places';
 const NAV: (NavItem & { short?: string })[] = [
   { id: 'home', label: 'Home', icon: House },
   { id: 'eventos', label: 'Eventos', icon: LayoutList },
+  { id: 'artistas', label: 'Artistas', icon: Mic2 },
   { id: 'mapa', label: 'Mapa', icon: MapIcon },
   { id: 'meus', label: 'Os meus eventos', short: 'Os meus', icon: Bookmark },
   { id: 'sobre', label: 'Sobre', icon: Info },
@@ -181,6 +183,7 @@ export default function App() {
           />
         )}
         {page === 'mapa' && <MapPage data={shown} city={city} selected={selected} onSelect={setSelected} />}
+        {page === 'artistas' && <Artists data={shown} onSelect={setSelected} />}
         {page === 'meus' && <MyEvents data={data} shown={shown.events} cities={allCities} onSelect={setSelected} />}
         {page === 'sobre' && <About data={data} />}
       </div>
@@ -220,7 +223,7 @@ export default function App() {
 
       {selected && !detailInColumn && (
         <Sheet className="detail" label={selected.title} onClose={closeDetail}>
-          <DetailContent e={selected} labels={data.categories} onClose={closeDetail} />
+          <DetailContent e={selected} labels={data.categories} artists={data.artists} onClose={closeDetail} />
         </Sheet>
       )}
     </>

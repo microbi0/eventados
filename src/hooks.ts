@@ -30,12 +30,12 @@ export function useMediaQuery(query: string) {
   return matches;
 }
 
-export type Page = 'home' | 'eventos' | 'mapa' | 'meus' | 'sobre';
+export type Page = 'home' | 'eventos' | 'artistas' | 'mapa' | 'meus' | 'sobre';
 
 // Estado inicial das páginas estáticas geradas para o Google (/eventos/porto/, /evento/…):
 // a app abre já na página, sítio, tipo ou evento dessa página. Ver scripts/prerender.mjs.
 export const INITIAL = (window as { __INITIAL__?: { page?: Page; city?: string; cats?: string[]; eventId?: string } }).__INITIAL__;
-const PAGES: Page[] = ['home', 'eventos', 'mapa', 'meus', 'sobre'];
+const PAGES: Page[] = ['home', 'eventos', 'artistas', 'mapa', 'meus', 'sobre'];
 
 // Navegação por hash (#/eventos): funciona igual no GitHub Pages e dentro da app Android.
 export function useHashPage(): [Page, (p: Page) => void] {

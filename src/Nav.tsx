@@ -5,7 +5,7 @@ import type { Page } from './hooks';
 export type NavItem = { id: Page; label: string; icon: LucideIcon };
 
 // Ordem em que os itens saem do menu quando falta espaço (os restantes ficam num chevron).
-const HIDE_ORDER: Page[] = ['sobre', 'mapa', 'meus', 'eventos'];
+const HIDE_ORDER: Page[] = ['sobre', 'mapa', 'meus', 'artistas', 'eventos'];
 const CHEVRON = 52;
 
 export default function Nav({ items, page, go }: { items: NavItem[]; page: Page; go: (p: Page) => void }) {

@@ -197,7 +197,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
       {/* ---------- coluna 3: detalhe (só quando há um evento selecionado) ---------- */}
       {compact && (
         <aside className="detail-col" aria-label="Detalhe do evento">
-          <DetailContent key={selected.id} e={selected} labels={data.categories} onClose={() => onSelect(null)} />
+          <DetailContent key={selected.id} e={selected} labels={data.categories} artists={data.artists} onClose={() => onSelect(null)} />
         </aside>
       )}
     </div>

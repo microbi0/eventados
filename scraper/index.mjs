@@ -15,6 +15,7 @@ import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasA
 import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 import { uguru, sonsEmTransito } from './sources/agencies.mjs';
+import { linkArtists } from './artists.mjs';
 
 // Ordem = prioridade na remoção de duplicados (agendas oficiais primeiro, depois regionais e salas).
 // Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
@@ -281,7 +282,12 @@ if (ONLY) {
 const places = Object.fromEntries([...new Set(events.map((e) => e.city))].map((c) => [c, municipioBBox(c)]).filter(([, b]) => b));
 
 await mkdir(dirname(OUT), { recursive: true });
-await writeFile(OUT, JSON.stringify({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, places, events }));
+// Artistas portugueses nomeados nos eventos (com fotografia; ver artists.mjs).
+const agencySources = new Set(Object.keys(SOURCE_KIND).filter((id) => SOURCE_KIND[id] === 'agency'));
+const artists = await linkArtists(events, { agencySources, titleKey });
+console.log(`→ ${Object.keys(artists).length} artistas com datas`);
+
+await writeFile(OUT, JSON.stringify({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, places, artists, events }));
 const cities = new Set(events.map((e) => e.city));
 console.log(`→ ${events.length} eventos em ${cities.size} concelhos escritos em ${OUT}`);
 console.log(`  pedidos HTTP: ${stats.requests} · respostas em cache: ${stats.cacheHits} · não modificadas (304): ${stats.notModified} · bloqueados por robots.txt: ${stats.blockedByRobots}`);

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { ArrowUpRight, Bookmark, CalendarDays, CalendarPlus, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
-import type { EventItem } from './types';
+import { ArrowUpRight, Bookmark, ChevronRight, Mic2, CalendarDays, CalendarPlus, ChevronDown, Clock, Euro, Gift, MapPin, Navigation, Search, Ticket, X } from 'lucide-react';
+import type { Artist, EventItem } from './types';
 import { formatSpan, oneTime, startMinutes } from './dates';
 import { styleOf } from './categories';
 import { ALL, normalize } from './filters';
@@ -373,7 +373,24 @@ function Fact({ icon: Icon, label, wide, children }: { icon: typeof MapPin; labe
   );
 }
 
-export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Record<string, string>; onClose: () => void }) {
+export const ARTIST_TYPES: Record<Artist['type'], string> = { cantor: 'Cantores e músicos', banda: 'Bandas', humor: 'Humoristas' };
+const ARTIST_ONE: Record<Artist['type'], string> = { cantor: 'Cantor/músico', banda: 'Banda', humor: 'Humorista' };
+
+// Fotografia do artista (ou as iniciais, se não houver).
+export function ArtistPhoto({ a, size }: { a: Artist; size?: number }) {
+  const initials = a.name.split(/\s+/).filter((w) => /^\p{Lu}/u.test(w)).slice(0, 2).map((w) => w[0]).join('');
+  return (
+    <span className="artist-photo" style={size ? { width: size, height: size } : undefined}>
+      {a.photo ? <img src={a.photo} alt="" loading="lazy" /> : <span>{initials || <Mic2 size={22} />}</span>}
+    </span>
+  );
+}
+
+// Abre a página do artista (#/artistas?a=id).
+export const openArtist = (id: string) => (window.location.hash = `/artistas?a=${encodeURIComponent(id)}`);
+
+export function DetailContent({ e, labels, onClose, artists }: { e: EventItem; labels: Record<string, string>; onClose: () => void; artists?: Record<string, Artist> }) {
+  const people = (e.artists ?? []).map((id) => artists?.[id]).filter((a): a is Artist => !!a);
   const mapsUrl =
     e.lat != null && e.lon != null
       ? `https://www.google.com/maps/search/?api=1&query=${e.lat},${e.lon}`
@@ -422,6 +439,27 @@ export function DetailContent({ e, labels, onClose }: { e: EventItem; labels: Re
             </small>
           </Fact>
         </div>
+        {people.length > 0 && (
+          <div className="detail-artists">
+            {people.map((a) => (
+              <button
+                key={a.id}
+                className="artist-chip"
+                onClick={() => {
+                  onClose();
+                  openArtist(a.id);
+                }}
+              >
+                <ArtistPhoto a={a} size={56} />
+                <span>
+                  <small>{ARTIST_ONE[a.type]}</small>
+                  <strong>{a.name}</strong>
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            ))}
+          </div>
+        )}
         {e.description && <p className="desc">{e.description}</p>}
         <p className="source-note">Fonte: {e.sourceName}</p>
         <div className="actions">

@@ -26,6 +26,15 @@ export interface EventItem {
   featured?: boolean;
   promoted?: boolean;
   alsoAt?: { name: string; source?: string; url: string }[];
+  // Artistas portugueses nomeados no evento (ids de EventsData.artists).
+  artists?: string[];
+}
+
+export interface Artist {
+  id: string;
+  name: string;
+  type: 'cantor' | 'banda' | 'humor';
+  photo: string | null;
 }
 
 export interface SourceInfo {
@@ -44,5 +53,6 @@ export interface EventsData {
   sources: SourceInfo[];
   // Limites de cada concelho [oeste, sul, este, norte].
   places?: Record<string, [number, number, number, number]>;
+  artists?: Record<string, Artist>;
   events: EventItem[];
 }

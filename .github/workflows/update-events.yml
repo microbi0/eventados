@@ -78,6 +78,10 @@ jobs:
           VITE_DATA_URL: https://eventados.com/data/events.json
           # ID de medição do Google Analytics (público por natureza; aparece no código das páginas).
           VITE_GA_ID: ${{ vars.GA_ID }}
+          # Google AdSense / Ads
+          VITE_GOOGLE_ADS_CLIENT: ${{ vars.GOOGLE_ADS_CLIENT || 'ca-pub-1904724100833544' }}
+          VITE_GOOGLE_ADS_SLOT_HOME: ${{ vars.GOOGLE_ADS_SLOT_HOME }}
+          VITE_GOOGLE_ADS_SLOT_EVENTS: ${{ vars.GOOGLE_ADS_SLOT_EVENTS }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

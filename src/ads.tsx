@@ -3,16 +3,18 @@ import { Sparkles, Megaphone, ExternalLink, MapPin, CalendarDays } from 'lucide-
 
 declare global {
   interface Window {
-    adsbygoogle?: any[];
+    adsbygoogle?: unknown[];
   }
 }
+
+export type AdStatus = 'loading' | 'filled' | 'unfilled';
 
 /**
  * Configuração dos anúncios Google Ads / AdSense.
  * Pode ser configurada via variáveis de ambiente (.env) ou editando os valores aqui:
- * - VITE_GOOGLE_ADS_CLIENT: ID do editor (ex: 'ca-pub-1234567890123456')
- * - VITE_GOOGLE_ADS_SLOT_HOME: ID do bloco de anúncios para o banner da Home
- * - VITE_GOOGLE_ADS_SLOT_EVENTS: ID do bloco de anúncios para os cartões entre eventos
+ * - VITE_GOOGLE_ADS_CLIENT: ID do editor (ex: 'ca-pub-1904724100833544')
+ * - VITE_GOOGLE_ADS_SLOT_HOME: ID do bloco de anúncios para o banner da Home (opcional)
+ * - VITE_GOOGLE_ADS_SLOT_EVENTS: ID do bloco de anúncios para os cartões entre eventos (opcional)
  */
 export const ADS_CONFIG = {
   client: (import.meta.env.VITE_GOOGLE_ADS_CLIENT as string) || 'ca-pub-1904724100833544',
@@ -20,20 +22,15 @@ export const ADS_CONFIG = {
     homeBanner: (import.meta.env.VITE_GOOGLE_ADS_SLOT_HOME as string) || '',
     eventsFeed: (import.meta.env.VITE_GOOGLE_ADS_SLOT_EVENTS as string) || '',
   },
-  // Se ainda não tiverem sido configurados IDs de bloco específicos (slots),
-  // mantém o layout visual preparado e previne erros no adsbygoogle.push
-  hasConfiguredSlots: Boolean(
-    import.meta.env.VITE_GOOGLE_ADS_SLOT_HOME || import.meta.env.VITE_GOOGLE_ADS_SLOT_EVENTS
-  ),
-  isTestMode: import.meta.env.DEV,
+  isTestMode: Boolean(import.meta.env.DEV),
 };
 
 /**
- * Garante que o script do Google AdSense é carregado quando há um client ID válido.
+ * Garante que o script do Google AdSense está carregado no documento.
  */
 function useLoadAdSenseScript() {
   useEffect(() => {
-    if (typeof window === 'undefined' || ADS_CONFIG.isTestMode) return;
+    if (typeof window === 'undefined') return;
     const existing = document.querySelector('script[src*="pagead2.googlesyndication.com"]');
     if (!existing) {
       const script = document.createElement('script');
@@ -46,52 +43,116 @@ function useLoadAdSenseScript() {
 }
 
 interface AdSlotProps {
-  slot: string;
+  slot?: string;
   format?: 'auto' | 'fluid' | 'rectangle' | 'horizontal';
   layout?: string;
   layoutKey?: string;
   className?: string;
   style?: React.CSSProperties;
+  onStatusChange?: (status: AdStatus) => void;
 }
 
 /**
- * Componente base que encapsula o <ins class="adsbygoogle" />.
+ * Componente base que encapsula o <ins class="adsbygoogle" /> e gere o ciclo de vida do anúncio.
  */
-export function GoogleAdSlot({ slot, format = 'auto', layout, layoutKey, className, style }: AdSlotProps) {
+export function GoogleAdSlot({
+  slot,
+  format = 'auto',
+  layout,
+  layoutKey,
+  className,
+  style,
+  onStatusChange,
+}: AdSlotProps) {
   const adRef = useRef<HTMLModElement>(null);
-  const [adLoaded, setAdLoaded] = useState(false);
+  const pushedRef = useRef(false);
   useLoadAdSenseScript();
 
   useEffect(() => {
-    if (ADS_CONFIG.isTestMode || !slot) return;
-    try {
-      if (typeof window !== 'undefined' && adRef.current) {
-        // Evita chamadas duplicadas
-        const isFilled = adRef.current.getAttribute('data-adsbygoogle-status');
-        if (!isFilled) {
-          (window.adsbygoogle = window.adsbygoogle || []).push({});
-          setAdLoaded(true);
+    const el = adRef.current;
+    if (typeof window === 'undefined' || !el) return;
+
+    const checkStatus = () => {
+      const adStatus = el.getAttribute('data-ad-status');
+      if (adStatus === 'filled') {
+        onStatusChange?.('filled');
+        return true;
+      }
+      if (adStatus === 'unfilled') {
+        onStatusChange?.('unfilled');
+        return true;
+      }
+      const iframe = el.querySelector('iframe');
+      if (iframe && iframe.offsetHeight > 0) {
+        onStatusChange?.('filled');
+        return true;
+      }
+      return false;
+    };
+
+    const observer = new MutationObserver(() => {
+      checkStatus();
+    });
+    observer.observe(el, {
+      attributes: true,
+      attributeFilter: ['data-ad-status', 'data-adsbygoogle-status'],
+      childList: true,
+      subtree: true,
+    });
+
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    const tryPush = (attempt = 0) => {
+      if (pushedRef.current || !adRef.current) return;
+      const status = adRef.current.getAttribute('data-adsbygoogle-status');
+      if (status) {
+        pushedRef.current = true;
+        checkStatus();
+        return;
+      }
+      if (adRef.current.offsetWidth === 0 && attempt < 10) {
+        retryTimer = setTimeout(() => tryPush(attempt + 1), 150);
+        return;
+      }
+      try {
+        pushedRef.current = true;
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (e) {
+        console.debug('Erro ao inicializar Google AdSense:', e);
+        onStatusChange?.('unfilled');
+      }
+    };
+
+    const raf = requestAnimationFrame(() => tryPush());
+
+    // Se o AdSense for bloqueado (ex.: AdBlock) ou não devolver anúncio após 4s, ativa o fallback visual
+    const fallbackTimer = setTimeout(() => {
+      if (!checkStatus()) {
+        const done = el.getAttribute('data-adsbygoogle-status');
+        if (!done) {
+          onStatusChange?.('unfilled');
         }
       }
-    } catch (e) {
-      console.debug('Erro ao inicializar Google AdSense:', e);
-    }
-  }, [slot]);
+    }, 4000);
 
-  if (ADS_CONFIG.isTestMode || !slot) {
-    return null;
-  }
+    return () => {
+      cancelAnimationFrame(raf);
+      if (retryTimer) clearTimeout(retryTimer);
+      clearTimeout(fallbackTimer);
+      observer.disconnect();
+    };
+  }, [slot, onStatusChange]);
 
   return (
     <ins
       ref={adRef}
       className={`adsbygoogle ${className ?? ''}`}
-      style={{ display: 'block', ...(style ?? {}) }}
+      style={{ display: 'block', width: '100%', ...(style ?? {}) }}
       data-ad-client={ADS_CONFIG.client}
-      data-ad-slot={slot}
+      {...(slot ? { 'data-ad-slot': slot } : {})}
       data-ad-format={format}
       {...(layout ? { 'data-ad-layout': layout } : {})}
       {...(layoutKey ? { 'data-ad-layout-key': layoutKey } : {})}
+      {...(ADS_CONFIG.isTestMode ? { 'data-adtest': 'on' } : {})}
       data-full-width-responsive="true"
     />
   );
@@ -101,7 +162,7 @@ export function GoogleAdSlot({ slot, format = 'auto', layout, layoutKey, classNa
  * 1. Banner da Home (entre categorias e secções)
  */
 export function HomeAdBanner() {
-  const hasSlot = Boolean(ADS_CONFIG.slots.homeBanner);
+  const [status, setStatus] = useState<AdStatus>('loading');
 
   return (
     <section className="home-ad-banner" aria-label="Espaço publicitário">
@@ -113,22 +174,29 @@ export function HomeAdBanner() {
       </div>
 
       <div className="home-ad-content">
-        {hasSlot && (
-          <GoogleAdSlot slot={ADS_CONFIG.slots.homeBanner} format="horizontal" className="home-ad-ins" />
-        )}
+        <div
+          className="home-ad-slot-wrap"
+          style={{ display: status === 'unfilled' ? 'none' : 'block', width: '100%' }}
+        >
+          <GoogleAdSlot
+            slot={ADS_CONFIG.slots.homeBanner}
+            format="auto"
+            className="home-ad-ins"
+            onStatusChange={setStatus}
+          />
+        </div>
 
-        {/* Pré-visualização elegante quando em modo teste ou sem bloco específico atribuído */}
-        {(!hasSlot || ADS_CONFIG.isTestMode) && (
+        {status === 'unfilled' && (
           <div className="ad-demo-banner">
             <div className="ad-demo-icon">
               <Sparkles size={24} />
             </div>
             <div className="ad-demo-text">
-              <strong>Anúncio Google Ads</strong>
-              <p>Espaço reservado para banner responsivo entre categorias (AdSense / AdMob).</p>
+              <strong>Sugestões & Agenda Cultural</strong>
+              <p>Descobre os melhores concertos, espetáculos de teatro, humor e exposições na tua cidade.</p>
             </div>
             <div className="ad-demo-pill">
-              <span>Saber mais</span>
+              <span>Explorar</span>
               <ExternalLink size={14} />
             </div>
           </div>
@@ -145,70 +213,105 @@ const AD_COVERS = [
 ];
 
 /**
- * 2. Cartão de Anúncio entre os eventos (idêntico visualmente a um EventCard)
+ * 2. Cartão de Anúncio entre os eventos (integrado na grelha e na lista compacta)
  */
 export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?: number }) {
-  const hasSlot = Boolean(ADS_CONFIG.slots.eventsFeed);
-  const coverImage = AD_COVERS[Math.floor(index / 30) % AD_COVERS.length] || AD_COVERS[0];
+  const [status, setStatus] = useState<AdStatus>('loading');
+  const coverImage = AD_COVERS[Math.floor(index / 6) % AD_COVERS.length] || AD_COVERS[0];
 
   if (compact) {
-    // Formato Linha (compacto quando o detalhe lateral está aberto - idêntico a EventRow)
     return (
       <article className="row ad-row" style={{ animationDelay: `${(index % 30) * 30}ms` }} aria-label="Anúncio patrocinado">
-        <div className="row-thumb">
-          <img src={coverImage} alt="Patrocinado" loading="lazy" />
-          <span className="row-badge" style={{ background: '#fef3c7', color: '#92400e' }} title="Patrocinado">
-            <Sparkles size={13} />
-          </span>
-        </div>
-        <div className="row-body">
-          <h3>Destaques Culturais & Sugestões</h3>
-          <p className="row-meta">
-            <span>
-              <Sparkles size={14} />
-              Patrocinado
+        <div
+          className="ad-row-slot"
+          style={{ display: status === 'unfilled' ? 'none' : 'block', width: '100%' }}
+        >
+          <div className="home-ad-header">
+            <span className="ad-badge-tag">
+              <Megaphone size={11} /> Publicidade
             </span>
-          </p>
-          <p className="row-meta">
-            <span>
-              <MapPin size={14} />
-              Portugal · Google Ads
-            </span>
-          </p>
-          {hasSlot && (
-            <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layout="in-article" />
-          )}
+            <span className="ad-provider-tag">Google Ads</span>
+          </div>
+          <GoogleAdSlot
+            slot={ADS_CONFIG.slots.eventsFeed}
+            format="auto"
+            className="ad-row-ins"
+            onStatusChange={setStatus}
+          />
         </div>
+
+        {status === 'unfilled' && (
+          <>
+            <div className="row-thumb">
+              <img src={coverImage} alt="Patrocinado" loading="lazy" />
+              <span className="row-badge" style={{ background: '#fef3c7', color: '#92400e' }} title="Patrocinado">
+                <Sparkles size={13} />
+              </span>
+            </div>
+            <div className="row-body">
+              <h3>Destaques Culturais & Sugestões</h3>
+              <p className="row-meta">
+                <span>
+                  <Sparkles size={14} />
+                  Patrocinado
+                </span>
+              </p>
+              <p className="row-meta">
+                <span>
+                  <MapPin size={14} />
+                  Portugal · Google Ads
+                </span>
+              </p>
+            </div>
+          </>
+        )}
       </article>
     );
   }
 
-  // Formato Cartão (grelha normal - idêntico a EventCard)
   return (
     <article className="card ad-card" style={{ animationDelay: `${(index % 30) * 45}ms` }} aria-label="Anúncio patrocinado">
-      <div className="media">
-        <img src={coverImage} alt="Patrocinado" loading="lazy" />
-        <span className="ad-badge-overlay">Patrocinado</span>
-        {hasSlot && (
-          <GoogleAdSlot slot={ADS_CONFIG.slots.eventsFeed} format="fluid" layoutKey="-fb+5w+4e-db+86" className="ad-card-ins" />
-        )}
+      <div
+        className="ad-card-slot"
+        style={{ display: status === 'unfilled' ? 'none' : 'flex' }}
+      >
+        <div className="home-ad-header">
+          <span className="ad-badge-tag">
+            <Megaphone size={12} /> Publicidade
+          </span>
+          <span className="ad-provider-tag">Google Ads</span>
+        </div>
+        <GoogleAdSlot
+          slot={ADS_CONFIG.slots.eventsFeed}
+          format="rectangle"
+          className="ad-card-ins"
+          onStatusChange={setStatus}
+        />
       </div>
 
-      <div className="body">
-        <span className="tag" style={{ background: '#fef3c7', color: '#92400e' }}>
-          <Sparkles size={14} />
-          Patrocinado
-        </span>
-        <h3>Destaques Culturais & Experiências em Portugal</h3>
-        <p className="meta-row">
-          <MapPin size={16} strokeWidth={2.2} />
-          <span>Portugal · Google Ads</span>
-        </p>
-        <p className="meta-row">
-          <CalendarDays size={16} strokeWidth={2.2} />
-          <span>Sugestão recomendada</span>
-        </p>
-      </div>
+      {status === 'unfilled' && (
+        <>
+          <div className="media">
+            <img src={coverImage} alt="Patrocinado" loading="lazy" />
+            <span className="ad-badge-overlay">Patrocinado</span>
+          </div>
+          <div className="body">
+            <span className="tag" style={{ background: '#fef3c7', color: '#92400e' }}>
+              <Sparkles size={14} />
+              Patrocinado
+            </span>
+            <h3>Destaques Culturais & Experiências em Portugal</h3>
+            <p className="meta-row">
+              <MapPin size={16} strokeWidth={2.2} />
+              <span>Portugal · Google Ads</span>
+            </p>
+            <p className="meta-row">
+              <CalendarDays size={16} strokeWidth={2.2} />
+              <span>Sugestão recomendada</span>
+            </p>
+          </div>
+        </>
+      )}
     </article>
   );
 }

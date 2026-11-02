@@ -33,12 +33,13 @@ export function initAnalytics() {
     window.dataLayer!.push(arguments);
   };
   const consent = storedConsent();
-  // Por omissão tudo recusado; se o visitante já tinha aceitado, aplica-se logo.
+  const adState = consent === 'denied' ? 'denied' : 'granted';
+  // Por omissão estatísticas aguardam escolha; anúncios permitidos salvo recusa explícita.
   window.gtag('consent', 'default', {
     analytics_storage: consent === 'granted' ? 'granted' : 'denied',
-    ad_storage: 'denied',
-    ad_user_data: 'denied',
-    ad_personalization: 'denied',
+    ad_storage: adState,
+    ad_user_data: adState,
+    ad_personalization: adState,
     wait_for_update: 500,
   });
   window.gtag('js', new Date());
@@ -56,7 +57,12 @@ export function setConsent(value: 'granted' | 'denied') {
   } catch {
     /* sem armazenamento: a escolha vale só para esta visita */
   }
-  window.gtag?.('consent', 'update', { analytics_storage: value });
+  window.gtag?.('consent', 'update', {
+    analytics_storage: value,
+    ad_storage: value,
+    ad_user_data: value,
+    ad_personalization: value,
+  });
 }
 
 export const analyticsEnabled = () => !!GA_ID;

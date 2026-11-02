@@ -1010,12 +1010,15 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 }
 .home-ad-content {
   position: relative;
-  min-height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 90px;
+  width: 100%;
+  display: block;
+}
+.home-ad-slot-wrap {
+  width: 100%;
 }
 .home-ad-ins {
+  display: block;
   width: 100%;
   min-height: 90px;
 }
@@ -1082,6 +1085,19 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   background: var(--surface);
   cursor: pointer;
 }
+.ad-card-slot {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+  padding: 14px 16px 16px;
+}
+.ad-card-ins {
+  display: block;
+  width: 100%;
+  min-height: 250px;
+  flex: 1;
+}
 .ad-badge-overlay {
   position: absolute;
   top: 10px;
@@ -1101,6 +1117,15 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 /* Linha de anúncio compacta (modo row) */
 .row.ad-row {
   cursor: pointer;
+}
+.ad-row-slot {
+  width: 100%;
+  padding: 4px 6px;
+}
+.ad-row-ins {
+  display: block;
+  width: 100%;
+  min-height: 90px;
 }
 
 /* Botão de aviso na summary quando a categoria restringe o total encontrado */

@@ -115,17 +115,9 @@ export function GoogleAdSlot({
 
     const raf = requestAnimationFrame(() => tryPush());
 
-    // Se o AdSense não preencher o bloco em 2.5s (ex.: AdBlock ou sem inventário), remove a caixa
-    const fallbackTimer = setTimeout(() => {
-      if (!checkStatus() && el.getAttribute('data-ad-status') !== 'filled') {
-        onStatusChange?.('unfilled');
-      }
-    }, 2500);
-
     return () => {
       cancelAnimationFrame(raf);
       if (retryTimer) clearTimeout(retryTimer);
-      clearTimeout(fallbackTimer);
       observer.disconnect();
     };
   }, [slot, onStatusChange]);
@@ -146,7 +138,7 @@ export function GoogleAdSlot({
 }
 
 /**
- * 1. Banner da Home — só aparece se existir anúncio preenchido (`filled`).
+ * 1. Banner da Home — só mostra a moldura se o anúncio for preenchido (`filled`), e desaparece se `unfilled`.
  */
 export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: string }) {
   const [status, setStatus] = useState<AdStatus>('loading');
@@ -181,7 +173,7 @@ export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: st
 }
 
 /**
- * 2. Cartão de Anúncio In-Feed entre os eventos — só aparece se existir anúncio preenchido (`filled`).
+ * 2. Cartão de Anúncio In-Feed entre os eventos — só mostra a moldura se `filled`, e desaparece se `unfilled`.
  */
 export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?: number }) {
   const [status, setStatus] = useState<AdStatus>('loading');

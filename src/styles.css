@@ -1046,16 +1046,20 @@ h1, h2, h3 {
 .home-ad-banner.ad-loading,
 .card.ad-card.ad-loading,
 .row.ad-row.ad-loading {
-  max-height: 0 !important;
   min-height: 0 !important;
   margin: 0 !important;
   padding: 0 !important;
   border: 0 !important;
   background: transparent !important;
   box-shadow: none !important;
-  opacity: 0 !important;
-  overflow: hidden !important;
-  pointer-events: none !important;
+}
+.ad-loading .home-ad-content,
+.ad-loading .ad-card-slot,
+.ad-loading .ad-row-slot,
+.ad-loading .adsbygoogle {
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 .home-ad-banner:has(ins[data-ad-status="unfilled"]),
 .card.ad-card:has(ins[data-ad-status="unfilled"]),

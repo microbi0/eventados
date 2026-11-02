@@ -11,14 +11,13 @@ declare global {
  * Configuração dos anúncios Google Ads / AdSense.
  * - Client: ca-pub-1904724100833544
  * - Slot Banner (Home): 1160512650
- * - Slot In-Feed (Eventos): 6221267648 / 6449544534
+ * - Slot In-Feed (Eventos): 6221267648 (e 6449544534)
  */
 export const ADS_CONFIG = {
   client: (import.meta.env.VITE_GOOGLE_ADS_CLIENT as string) || 'ca-pub-1904724100833544',
   slots: {
     homeBanner: (import.meta.env.VITE_GOOGLE_ADS_SLOT_HOME as string) || '1160512650',
     eventsFeed: (import.meta.env.VITE_GOOGLE_ADS_SLOT_EVENTS as string) || '6221267648',
-    eventsInFeedAlt: '6449544534',
   },
 };
 
@@ -42,6 +41,7 @@ function useLoadAdSenseScript() {
 interface AdSlotProps {
   slot: string;
   format?: 'auto' | 'fluid' | 'rectangle' | 'horizontal';
+  fullWidthResponsive?: boolean;
   layout?: string;
   layoutKey?: string;
   className?: string;
@@ -54,6 +54,7 @@ interface AdSlotProps {
 export function GoogleAdSlot({
   slot,
   format = 'auto',
+  fullWidthResponsive = true,
   layout,
   layoutKey,
   className,
@@ -104,13 +105,13 @@ export function GoogleAdSlot({
       data-ad-format={format}
       {...(layout ? { 'data-ad-layout': layout } : {})}
       {...(layoutKey ? { 'data-ad-layout-key': layoutKey } : {})}
-      data-full-width-responsive="true"
+      data-full-width-responsive={fullWidthResponsive ? 'true' : 'false'}
     />
   );
 }
 
 /**
- * 1. Banner da Home (bloco 1160512650)
+ * 1. Banner da Home (bloco 1160512650 / 6221267648)
  */
 export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: string }) {
   return (
@@ -126,6 +127,7 @@ export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: st
         <GoogleAdSlot
           slot={slot}
           format="auto"
+          fullWidthResponsive={true}
           className="home-ad-ins"
         />
       </div>
@@ -134,10 +136,9 @@ export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: st
 }
 
 /**
- * 2. Cartão de Anúncio In-Feed entre os eventos (bloco 6221267648 / 6449544534)
+ * 2. Cartão de Anúncio In-Feed entre os eventos (bloco 6221267648)
  */
 export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?: number }) {
-  // Usa o bloco 6221267648 (display/auto in-feed) como principal
   const slot = ADS_CONFIG.slots.eventsFeed;
 
   if (compact) {
@@ -153,6 +154,7 @@ export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?:
           <GoogleAdSlot
             slot={slot}
             format="auto"
+            fullWidthResponsive={false}
             className="ad-row-ins"
           />
         </div>
@@ -172,6 +174,7 @@ export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?:
         <GoogleAdSlot
           slot={slot}
           format="auto"
+          fullWidthResponsive={false}
           className="ad-card-ins"
         />
       </div>

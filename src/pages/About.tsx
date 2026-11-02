@@ -1,6 +1,7 @@
 import { ArrowUpRight, Building2, CalendarClock, Compass, Landmark, MapPinned, Mic2, ShieldCheck, Sparkles } from 'lucide-react';
 import type { EventsData, SourceInfo } from '../types';
 import { stagger } from '../ui';
+import { computePropagation } from '../Footer';
 
 const GROUPS: { kind: NonNullable<SourceInfo['kind']>; title: string; icon: typeof Landmark; text: string }[] = [
   { kind: 'agenda', title: 'Agendas municipais', icon: Building2, text: 'Agendas culturais publicadas pelas câmaras municipais.' },
@@ -10,8 +11,7 @@ const GROUPS: { kind: NonNullable<SourceInfo['kind']>; title: string; icon: type
 ];
 
 export default function About({ data }: { data: EventsData }) {
-  const total = data.events.length;
-  const cities = new Set(data.events.map((e) => e.city)).size;
+  const reach = computePropagation(data);
   return (
     <div className="about">
       <section className="about-hero">
@@ -33,15 +33,19 @@ export default function About({ data }: { data: EventsData }) {
         </p>
         <div className="stats">
           <div style={stagger(0)}>
-            <strong>{total.toLocaleString('pt-PT')}</strong>
+            <strong>{reach.totalEvents.toLocaleString('pt-PT')}</strong>
             <span>eventos</span>
           </div>
           <div style={stagger(1)}>
-            <strong>{cities}</strong>
-            <span>concelhos</span>
+            <strong>{reach.municipios}</strong>
+            <span>municípios</span>
           </div>
           <div style={stagger(2)}>
-            <strong>{data.sources.length}</strong>
+            <strong>{reach.salas.toLocaleString('pt-PT')}</strong>
+            <span>salas e espaços</span>
+          </div>
+          <div style={stagger(3)}>
+            <strong>{reach.totalSources}</strong>
             <span>fontes</span>
           </div>
         </div>
@@ -108,7 +112,17 @@ export default function About({ data }: { data: EventsData }) {
       <section className="about-note">
         <p>
           Os eventos pertencem às respetivas entidades organizadoras. Horários, preços e disponibilidade podem mudar: confirma sempre os detalhes no
-          site de origem antes de sair de casa. Encontraste um erro ou queres sugerir uma agenda? Diz-nos.
+          site de origem antes de sair de casa. Encontraste um erro ou queres sugerir uma agenda?{' '}
+          <a
+            href="#contactos"
+            className="link"
+            onClick={(ev) => {
+              ev.preventDefault();
+              document.getElementById('contactos')?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          >
+            Diz-nos no formulário de contactos abaixo.
+          </a>
         </p>
       </section>
     </div>

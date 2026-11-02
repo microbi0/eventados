@@ -68,7 +68,7 @@ export function municipalPlatform(meta) {
     async scrape() {
       const today = lisbonDate();
       // Algumas câmaras dividem a agenda por tipo (meta.lists): juntam-se todas as listas.
-      const links = [...new Set((await Promise.all([meta.url, ...(meta.lists ?? [])].map((u) => listEventLinks(u).catch(() => [])))).flat())];
+      const links = [...new Set((await Promise.all([meta.url, ...(meta.lists ?? [])].map((u) => listEventLinks(u, meta.maxPages ?? 12).catch(() => [])))).flat())];
       // Páginas de detalhe mudam pouco: reutilizadas durante 7 dias.
       const events = await mapLimit(links, 3, async (url) => {
         try {
@@ -125,10 +125,10 @@ export const gaia = {
 export const quartelDasArtes = municipalPlatform({
   id: 'quarteldasartes',
   name: 'Quartel das Artes',
-  url: 'https://www.quarteldasartes.pt/programacao/teatro',
+  url: 'https://www.quarteldasartes.pt/programacao/todos-os-eventos',
   venue: 'Quartel das Artes',
-  lists: ['cinema', 'danca', 'musica', 'outros-eventos', 'stand-up-comedy'].map((t) => `https://www.quarteldasartes.pt/programacao/${t}`),
   city: 'Oliveira do Bairro',
+  maxPages: 1,
 });
 export const palmela = municipalPlatform({ id: 'palmela', name: 'CM Palmela', url: 'https://www.cm-palmela.pt/viver/cultura/agenda-de-eventos', city: 'Palmela' });
 
@@ -207,6 +207,141 @@ export const tabua = {
           image: it.image?.url ?? null,
         }),
       );
+    }
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Visit Seia — Agenda de Eventos do Concelho de Seia
+// ---------------------------------------------------------------------------
+export const visitSeia = {
+  meta: {
+    id: 'visitseia',
+    name: 'Visit Seia',
+    url: 'https://visitseia.pt/eventos/',
+    city: 'Seia',
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const html = await fetchText(this.meta.url);
+    const boxes = html.split('<div class="each-box').slice(1);
+    const out = [];
+
+    for (const b of boxes) {
+      const link = b.match(/href="([^"]+)"/)?.[1];
+      const title = b.match(/class="title-box2">([\s\S]*?)<\/div>/)?.[1]?.trim();
+      const dateText = b.match(/class="data-evento">([\s\S]*?)<\/div>/)?.[1]?.trim();
+      const loc = b.match(/class="local-evento">([\s\S]*?)<\/div>/)?.[1]?.trim();
+      const img = b.match(/<img[^>]*src="([^"]+)"/)?.[1];
+
+      if (!link || !title || !dateText) continue;
+
+      const dates = parsePtDateRange(decodeEntities(dateText));
+      if (!dates || dates.end < today) continue;
+
+      const cleanTitle = decodeEntities(title);
+      const rawCats = [];
+      const titleLower = cleanTitle.toLowerCase();
+      if (/música|jazz|blues|concerto|piano|sons/i.test(titleLower)) rawCats.push('Música');
+      if (/gastronomia|sabores|queijo|mostra/i.test(titleLower)) rawCats.push('Feiras & Mercados');
+      if (/cinema|cineeco/i.test(titleLower)) rawCats.push('Cinema');
+      if (/teatro|comédia/i.test(titleLower)) rawCats.push('Teatro');
+      if (/trail|downhill|btt|granfondo|nature|caminhada|passeio|percurso/i.test(titleLower)) rawCats.push('Desporto & Aventura');
+      if (/natal|festa|marchas|passagem de ano/i.test(titleLower)) rawCats.push('Festas Populares');
+
+      out.push(
+        makeEvent(this.meta, {
+          id: link.replace(/\/$/, '').split('/').pop() || cleanTitle,
+          url: link,
+          title: cleanTitle,
+          venue: loc ? decodeEntities(loc) : 'Seia',
+          address: loc ? `${decodeEntities(loc)}, Seia` : 'Seia',
+          lat: 40.4206,
+          lon: -7.7032,
+          startDate: dates.start,
+          endDate: dates.end,
+          datesText: decodeEntities(dateText),
+          rawCategories: rawCats,
+          image: img ? absUrl(img, this.meta.url) : null,
+        }),
+      );
+    }
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Leiriagenda — Município de Leiria
+// ---------------------------------------------------------------------------
+const PT_MONTHS_MAP = {
+  jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
+  jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12',
+};
+
+export const leiriagenda = {
+  meta: {
+    id: 'leiriagenda',
+    name: 'Leiriagenda',
+    url: 'https://leiriagenda.cm-leiria.pt/pt/agenda/proximos-eventos',
+    city: 'Leiria',
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const out = [];
+    const seenUrls = new Set();
+
+    for (let page = 1; page <= 4; page++) {
+      let html;
+      try {
+        html = await fetchText(`https://leiriagenda.cm-leiria.pt/pt/agenda/proximos-eventos?page=${page}`);
+      } catch {
+        break;
+      }
+
+      const cards = html.split(/<a\s+href="(https:\/\/leiriagenda\.cm-leiria\.pt\/pt\/agenda\/[^"]+)">\s*<div class="component">/).slice(1);
+      if (!cards.length) break;
+
+      for (let i = 0; i < cards.length; i += 2) {
+        const url = cards[i];
+        const body = cards[i + 1];
+        if (seenUrls.has(url)) continue;
+        seenUrls.add(url);
+
+        const title = body.match(/class="proximo_title">([^<]+)<\/span>/)?.[1]?.trim();
+        const dia = body.match(/class="dia">(\d+)<\/span>/)?.[1];
+        const mesRaw = body.match(/class="mes">([^<]+)<\/span>/)?.[1]?.toLowerCase().replace('.', '').trim();
+        const ano = body.match(/class="ano">(\d{4})<\/span>/)?.[1];
+        const hora = body.match(/class="ano">(\d{1,2}h\d{2})<\/span>/)?.[1];
+        const local = body.match(/class="local">([\s\S]*?)<\/span>/)?.[1]?.trim();
+        const localidade = body.match(/class="localidade">([\s\S]*?)<\/span>/)?.[1]?.trim();
+        const img = body.match(/background-image:\s*url\(([^)]+)\)/)?.[1];
+        const rawCats = [...body.matchAll(/class="cat-name">([^<]+)<\/span>/g)].map((m) => m[1].trim());
+
+        if (!title || !dia || !ano) continue;
+
+        const mNum = PT_MONTHS_MAP[mesRaw] || '01';
+        const dateStr = `${ano}-${mNum}-${dia.padStart(2, '0')}`;
+        if (dateStr < today) continue;
+
+        out.push(
+          makeEvent(this.meta, {
+            id: url.replace(/\/$/, '').split('/').pop() || title,
+            url,
+            title: decodeEntities(title),
+            venue: local ? decodeEntities(local) : (localidade ? decodeEntities(localidade) : 'Leiria'),
+            address: local ? `${decodeEntities(local)}, ${localidade || 'Leiria'}` : 'Leiria',
+            city: localidade ? decodeEntities(localidade) : 'Leiria',
+            lat: 39.7438,
+            lon: -8.8078,
+            startDate: dateStr,
+            endDate: dateStr,
+            timesText: hora || null,
+            rawCategories: rawCats,
+            image: img ? absUrl(img, this.meta.url) : null,
+          }),
+        );
+      }
     }
     return out;
   },

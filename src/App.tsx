@@ -15,6 +15,7 @@ import About from './pages/About';
 import MyEvents from './pages/MyEvents';
 import Artists from './pages/Artists';
 import Nav, { type NavItem } from './Nav';
+import Footer from './Footer';
 import { applyPrefs, usePersonal } from './personal';
 import { setAreaRadius } from './places';
 
@@ -187,6 +188,8 @@ export default function App() {
         {page === 'meus' && <MyEvents data={data} shown={shown.events} cities={allCities} onSelect={setSelected} />}
         {page === 'sobre' && <About data={data} />}
       </div>
+
+      <Footer data={data} page={page} go={go} />
 
       {!sidebar && (
         <nav className="tabbar" aria-label="Menu">

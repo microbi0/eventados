@@ -8,3 +8,4 @@ android/local.properties
 releases
 *.apk
 tsconfig.tsbuildinfo
+.smbdelete*

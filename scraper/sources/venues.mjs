@@ -1,5 +1,5 @@
 // Salas de espetáculos com agenda própria.
-import { fetchText, postText, absUrl, lisbonDate, decodeEntities, splitDateTime, stripHtml } from '../util.mjs';
+import { fetchText, postText, absUrl, lisbonDate, decodeEntities, splitDateTime, stripHtml, mapLimit } from '../util.mjs';
 import { makeEvent } from '../event.mjs';
 import { parsePtDateRange } from '../ptdates.mjs';
 
@@ -1201,5 +1201,386 @@ export const ccco = {
     }
 
     return [...out.values()];
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Teatro Micaelense — Ponta Delgada, Açores
+// ---------------------------------------------------------------------------
+export const teatroMicaelense = {
+  meta: {
+    id: 'teatromicaelense',
+    name: 'Teatro Micaelense',
+    url: 'https://www.teatromicaelense.pt/agenda/',
+    venue: 'Teatro Micaelense',
+    address: 'Largo de São João, 9500-106 Ponta Delgada',
+    city: 'Ponta Delgada',
+    lat: 37.7423,
+    lon: -25.6698,
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const out = [];
+    const seenUrls = new Set();
+
+    for (let page = 1; page <= 5; page++) {
+      const pageUrl = page === 1 ? this.meta.url : `https://www.teatromicaelense.pt/agenda/pag-${page}/`;
+      let html;
+      try {
+        html = await fetchText(pageUrl);
+      } catch {
+        break;
+      }
+
+      const cards = [...html.matchAll(/<div class="group relative border[^"]*">([\s\S]*?)<\/div>\s*<\/div>/g)];
+      if (!cards.length) break;
+
+      for (const c of cards) {
+        const block = c[1];
+        const linkMatch = block.match(/href="(\/agenda\/(\d{4}-\d{2}-\d{2})\/[^"]+)"/);
+        if (!linkMatch) continue;
+
+        const link = absUrl(linkMatch[1], this.meta.url);
+        if (seenUrls.has(link)) continue;
+        seenUrls.add(link);
+
+        const startDate = linkMatch[2];
+        if (startDate < today) continue;
+
+        const title = block.match(/<div class="text-\[1\.1rem\][^"]*">([\s\S]*?)<\/div>/)?.[1]?.trim();
+        const subtitle = block.match(/<div class="uppercase leading-6 text-sm[^"]*">([\s\S]*?)<\/div>/)?.[1]?.trim();
+        const when = block.match(/<div class="when">([\s\S]*?)<\/div>/)?.[1]?.trim();
+        const img = block.match(/<img[^>]*src="([^"]+)"/)?.[1];
+        const bol = block.match(/href="(https:\/\/teatromicaelense\.bol\.pt\/[^"]+)"/)?.[1];
+
+        if (!title) continue;
+
+        const timeMatch = when?.match(/(\d{1,2}[hH]\d{2})/);
+        const timesText = timeMatch ? timeMatch[1].toLowerCase() : null;
+
+        const rawCats = [];
+        const tLower = (title + ' ' + (subtitle || '')).toLowerCase();
+        if (/humor|comédia|bataguas|batáguas/i.test(tLower)) rawCats.push('Humor');
+        if (/música|concerto|jazz|tributo|orquestra|recital/i.test(tLower)) rawCats.push('Música');
+        if (/teatro|ópera|musical/i.test(tLower)) rawCats.push('Teatro');
+        if (/dança|ballet|bailado/i.test(tLower)) rawCats.push('Dança');
+        if (/cinema/i.test(tLower)) rawCats.push('Cinema');
+
+        out.push(
+          makeEvent(this.meta, {
+            id: linkMatch[1].replace(/^\/agenda\/\d{4}-\d{2}-\d{2}\/|\/$/g, ''),
+            url: link,
+            title: decodeEntities(title),
+            subtitle: subtitle ? decodeEntities(subtitle) : null,
+            venue: this.meta.venue,
+            address: this.meta.address,
+            city: this.meta.city,
+            lat: this.meta.lat,
+            lon: this.meta.lon,
+            startDate,
+            endDate: startDate,
+            timesText,
+            datesText: when ? decodeEntities(when) : null,
+            tickets: bol || null,
+            rawCategories: rawCats,
+            fallbackCategory: 'teatro',
+            image: img ? absUrl(img, this.meta.url) : null,
+          }),
+        );
+      }
+    }
+
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Forum Braga — Braga
+// ---------------------------------------------------------------------------
+export const forumBraga = {
+  meta: {
+    id: 'forumbraga',
+    name: 'Forum Braga',
+    url: 'https://www.forumbraga.com/Agenda/Programacao',
+    venue: 'Forum Braga',
+    address: 'Av. Dr. Francisco Pires Gonçalves, 4715-558 Braga',
+    city: 'Braga',
+    lat: 41.5422,
+    lon: -8.4239,
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const html = await fetchText(this.meta.url);
+    const cards = [...html.matchAll(/<article class="u-block-hover[^\"]*">([\s\S]*?)<\/article>/gi)];
+    const out = [];
+    const seen = new Set();
+
+    for (const c of cards) {
+      const raw = c[1];
+      const linkRel = raw.match(/href="(\/Detail\/Index\/[^"]+)"/)?.[1];
+      const title = raw.match(/<H6>([\s\S]*?)<\/H6>/i)?.[1]?.trim() || raw.match(/alt="([^"]+)"/)?.[1]?.trim();
+      const dateRaw = raw.match(/class="[^"]*dateinfo[^"]*">([\s\S]*?)<\/h4>/i)?.[1]?.replace(/<[^>]+>/g, '').trim();
+      const img = raw.match(/<img[^>]*src="([^"]+)"/)?.[1];
+      const ticket = raw.match(/href="(https:\/\/[^"]*ticketline[^"]*)"/)?.[1];
+      const isFree = /ENTRADA LIVRE/i.test(raw);
+
+      if (!title || !dateRaw) continue;
+
+      const cleanDateStr = decodeEntities(dateRaw).replace(/\|\s*\d{1,2}:\d{2}/g, '');
+      const dates = parsePtDateRange(cleanDateStr);
+      if (!dates || dates.end < today) continue;
+
+      const id = linkRel ? linkRel.split('/').pop() : title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      const timesText = dateRaw.match(/\d{1,2}:\d{2}/)?.[0] ?? null;
+      const cleanTitle = decodeEntities(title);
+
+      const rawCats = [];
+      const tLower = cleanTitle.toLowerCase();
+      if (/humor|comédia|batáguas|bataguas|hugo sousa|raphael ghanem|stand-up/i.test(tLower)) rawCats.push('Humor');
+      if (/música|concerto|blues|tributo|orquestra|bandeira|abrunhosa|vercillo|adele|campos/i.test(tLower)) rawCats.push('Música');
+      if (/teatro|musical|baião|amor é assim/i.test(tLower)) rawCats.push('Teatro');
+      if (/dança|bailado|cisnes|quebra-nozes|dance/i.test(tLower)) rawCats.push('Dança');
+      if (/feira|agro|salão|tattoo|games/i.test(tLower)) rawCats.push('Feiras & Congressos');
+
+      out.push(
+        makeEvent(this.meta, {
+          id,
+          url: linkRel ? absUrl(linkRel, this.meta.url) : this.meta.url,
+          title: cleanTitle,
+          venue: this.meta.venue,
+          address: this.meta.address,
+          city: this.meta.city,
+          lat: this.meta.lat,
+          lon: this.meta.lon,
+          startDate: dates.start,
+          endDate: dates.end,
+          timesText,
+          datesText: decodeEntities(dateRaw),
+          tickets: ticket || null,
+          price: isFree ? 'Gratuito' : null,
+          rawCategories: rawCats,
+          image: img ? absUrl(img, this.meta.url) : null,
+        }),
+      );
+    }
+
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Teatro Municipal da Lousã (TML) — Lousã
+// ---------------------------------------------------------------------------
+export const teatroLousa = {
+  meta: {
+    id: 'teatrolousa',
+    name: 'Teatro Municipal da Lousã',
+    url: 'https://tml.cm-lousa.pt/agenda/',
+    venue: 'Teatro Municipal da Lousã',
+    address: 'Rua Dr. João Santos, 3200-244 Lousã',
+    city: 'Lousã',
+    lat: 40.1118,
+    lon: -8.2458,
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const html = await fetchText(this.meta.url);
+    const events = [...html.matchAll(/onclick="window\.location\.href='(https:\/\/tml\.cm-lousa\.pt\/evento\/[^']+)'"([\s\S]*?)<\/div>\s*<\/div>/g)];
+    const out = [];
+    const seen = new Set();
+
+    for (const ev of events) {
+      const url = ev[1];
+      const body = ev[2];
+
+      const img = body.match(/src="([^"]+)"/)?.[1];
+      const time = body.match(/<h3>\s*(\d{1,2}:\d{2})\s*<\/h3>/)?.[1];
+      const cat = body.match(/<h3 class="categoryGrid">\s*([\s\S]*?)\s*<\/h3>/)?.[1]?.trim();
+      const dateMatch = body.match(/<h2>(\d{2})-(\d{2})-(\d{2,4})[^<]*<\/h2>/);
+      const title = body.match(/<h2 class="titleList">\s*([\s\S]*?)\s*<\/h2>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+
+      if (!url || !title || !dateMatch) continue;
+
+      const day = dateMatch[1];
+      const month = dateMatch[2];
+      let year = dateMatch[3];
+      if (year.length === 2) year = `20${year}`;
+
+      const dateStr = `${year}-${month}-${day}`;
+      if (dateStr < today) continue;
+
+      const id = url.replace(/\/$/, '').split('/').pop() || title;
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      out.push({
+        id,
+        url,
+        title: decodeEntities(title),
+        dateStr,
+        time,
+        cat,
+        img,
+      });
+    }
+
+    // Detail fetch for tickets and full description
+    return await mapLimit(out, 3, async (it) => {
+      let ticketLink = null;
+      let desc = null;
+      try {
+        const detailHtml = await fetchText(it.url, { cacheHours: 24 * 7 });
+        ticketLink = detailHtml.match(/href="(https:\/\/[^"]*(?:ticketline|bol\.pt)[^"]*)"/)?.[1] ?? null;
+        desc = stripHtml(detailHtml.match(/<div class="[^"]*single-content[^"]*">([\s\S]*?)<\/div>/i)?.[1] ?? '');
+      } catch {}
+
+      return makeEvent(this.meta, {
+        id: it.id,
+        url: it.url,
+        title: it.title,
+        description: desc || null,
+        venue: this.meta.venue,
+        address: this.meta.address,
+        city: this.meta.city,
+        lat: this.meta.lat,
+        lon: this.meta.lon,
+        startDate: it.dateStr,
+        endDate: it.dateStr,
+        timesText: it.time || null,
+        tickets: ticketLink,
+        rawCategories: it.cat ? [decodeEntities(it.cat)] : [],
+        fallbackCategory: 'teatro',
+        image: it.img ? absUrl(it.img, this.meta.url) : null,
+      });
+    });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Maus Hábitos — Porto
+// ---------------------------------------------------------------------------
+export const mausHabitos = {
+  meta: {
+    id: 'maushabitos',
+    name: 'Maus Hábitos',
+    url: 'https://www.maushabitos.com/espetaculos-e-clubbing/',
+    venue: 'Maus Hábitos',
+    address: 'Rua de Passos Manuel 178, 4º Piso, 4000-382 Porto',
+    city: 'Porto',
+    lat: 41.1472,
+    lon: -8.6074,
+  },
+  async scrape() {
+    const today = lisbonDate();
+    let structJs;
+    try {
+      structJs = await fetchText('https://cdn.bndlyr.com/slstbe4votfbw7yg/_p/struct.js?v=1779714830796', { cacheHours: 24 });
+    } catch {
+      return [];
+    }
+
+    const idx = structJs.indexOf('"cEgF7lWBz7gVRoeb":{');
+    if (idx === -1) return [];
+
+    let depth = 0;
+    let end = idx + '"cEgF7lWBz7gVRoeb":'.length;
+    for (let i = end; i < structJs.length; i++) {
+      if (structJs[i] === '{') depth++;
+      else if (structJs[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+
+    const repeaterCfg = JSON.parse(structJs.slice(idx + '"cEgF7lWBz7gVRoeb":'.length, end));
+    repeaterCfg.page = 1;
+    repeaterCfg.pagination = { enabled: true, perPage: '100' };
+
+    const payload = {
+      hash: '1779714830796',
+      target: 'production',
+      geoData: { lat: 0, lon: 0 },
+      searchQuery: '',
+      favorites: [],
+      repeater: repeaterCfg,
+      locale: 'pt',
+      contentId: '0',
+      projectId: 'slstbe4votfbw7yg',
+    };
+
+    let data;
+    try {
+      const res = await fetch('https://repeater.bondlayer.com/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) return [];
+      data = await res.json();
+    } catch {
+      return [];
+    }
+
+    const items = data.items || [];
+    const out = [];
+
+    for (const it of items) {
+      const titleRaw = it['title-dispaly_crJy']?.all || it._title?.all;
+      const cleanTitle = stripHtml(titleRaw || '').replace(/^\d{2}\.\d{2}\.\d{2}\s*/, '').trim();
+      const startDateTime = it['start-date-and-time_cHJt'];
+      const endDateTime = it['end-date-and-time_cSkH'] || startDateTime;
+
+      if (!cleanTitle || !startDateTime) continue;
+
+      const startDate = startDateTime.slice(0, 10);
+      const endDate = endDateTime.slice(0, 10);
+      if (endDate < today) continue;
+
+      const startTime = startDateTime.slice(11, 16);
+      const subtitle = it.text_sub_header?.all?.replace(/<[^>]+>/g, '').trim();
+      const desc = stripHtml(it.description_cHyu?.all ?? '');
+      const img = it['cover-image_cr1c']?.all || it.image_img_hor_crop?.all || null;
+      const ticketLink = it.link_tickets_link?.all || null;
+      const price = it.text_porto_preco?.all?.replace(/<[^>]+>/g, '').trim() || null;
+      const slug = it._slug?.all || it.id;
+
+      const rawCats = [];
+      const tLower = cleanTitle.toLowerCase();
+      if (/jazz|concerto|banda|rock|dj|clubbing|música/i.test(tLower)) rawCats.push('Música');
+      if (/teatro|performance/i.test(tLower)) rawCats.push('Teatro');
+      if (/exposição|expo|arte/i.test(tLower)) rawCats.push('Arte');
+      if (/mercado|market/i.test(tLower)) rawCats.push('Mercados');
+
+      out.push(
+        makeEvent(this.meta, {
+          id: slug,
+          url: `https://www.maushabitos.com/evento/${slug}/`,
+          title: cleanTitle,
+          subtitle: subtitle || null,
+          description: desc || null,
+          venue: this.meta.venue,
+          address: this.meta.address,
+          city: this.meta.city,
+          lat: this.meta.lat,
+          lon: this.meta.lon,
+          startDate,
+          endDate,
+          timesText: startTime !== '00:00' ? startTime.replace(':', 'h') : null,
+          tickets: ticketLink || null,
+          price: price || null,
+          rawCategories: rawCats,
+          fallbackCategory: 'musica',
+          image: img ? absUrl(img, this.meta.url) : null,
+        }),
+      );
+    }
+
+    return out;
   },
 };

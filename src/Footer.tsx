@@ -1,9 +1,10 @@
 import { useEffect, useId, useMemo, useRef, useState, type FocusEvent, type FormEvent, type MouseEvent } from 'react';
-import { AlertCircle, CheckCircle2, Info, Landmark, Mail, MapPinned, Send, X } from 'lucide-react';
+import { AlertCircle, Building2, CheckCircle2, Compass, Landmark, Mail, MapPinned, Send, Sparkles, X } from 'lucide-react';
 import type { EventsData } from './types';
 import type { Page } from './hooks';
 import { trackEvent } from './analytics';
 
+const TOTAL_PORTUGAL_MUNICIPIOS = 308;
 const SUBJECTS = ['Pedido', 'Sugestão', 'Informações'] as const;
 type Subject = (typeof SUBJECTS)[number];
 
@@ -23,25 +24,33 @@ export function computePropagation(data: EventsData) {
   for (const e of data.events) {
     if (e.city) cities.add(e.city.trim());
     if (e.venue) {
-      const norm = e.venue.trim().toLowerCase().replace(/\s+/g, ' ');
+      const norm = e.venue
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
       if (norm) venues.add(norm);
     }
   }
 
+  const venueSources = data.sources.filter((s) => s.kind === 'venue').length;
+  const coveragePct = Math.min(100, Math.round((cities.size / TOTAL_PORTUGAL_MUNICIPIOS) * 100));
+
   return {
     municipios: cities.size,
+    totalMunicipios: TOTAL_PORTUGAL_MUNICIPIOS,
+    coveragePct,
     salas: venues.size,
+    venueSources,
     totalSources: data.sources.length,
     totalEvents: data.events.length,
   };
 }
 
-// Permite abrir o popup de contacto a partir de qualquer ponto da app (ex.: página Sobre).
 export function openContactPopup() {
   window.dispatchEvent(new CustomEvent('open-contact-modal'));
 }
 
-export default function Footer({ data, page, go }: { data: EventsData; page: Page; go: (p: Page) => void }) {
+export default function Footer({ data, go }: { data: EventsData; page: Page; go: (p: Page) => void }) {
   const stats = useMemo(() => computePropagation(data), [data]);
   const dialogRef = useRef<HTMLDialogElement>(null);
 
@@ -81,7 +90,6 @@ export default function Footer({ data, page, go }: { data: EventsData; page: Pag
     return () => window.removeEventListener('open-contact-modal', onOpen);
   }, []);
 
-  // Fallback para browsers sem suporte nativo a <dialog closedby="any">
   const handleDialogClick = (ev: MouseEvent<HTMLDialogElement>) => {
     const dlg = dialogRef.current;
     if (!dlg || ev.target !== dlg) return;
@@ -183,52 +191,129 @@ export default function Footer({ data, page, go }: { data: EventsData; page: Pag
       });
     } catch {
       setStatus('error');
-      setErrorMsg('Não foi possível enviar agora. Tenta novamente.');
+      setErrorMsg('Não foi possível enviar a mensagem agora. Verifica a tua ligação e tenta novamente.');
     }
   };
 
+  const updatedDate = new Date(data.updatedAt).toLocaleDateString('pt-PT', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
     <>
-      <footer className="site-footer" aria-label="Rodapé">
-        <div className="footer-bar">
-          <div className="footer-left">
-            <a
-              className="brand footer-brand"
-              href="#/"
-              onClick={(e) => {
-                e.preventDefault();
-                go('home');
-              }}
-            >
-              Eventados
-            </a>
-            <span className="footer-tagline">Agenda cultural de Portugal, recolhida automaticamente todos os dias.</span>
+      <footer className="site-footer" aria-label="Rodapé do site">
+        <div className="footer-inner">
+          <div className="footer-grid">
+            {/* 1. SOBRE */}
+            <section className="footer-col footer-about" aria-label="Sobre o Eventados">
+              <div className="footer-brand-row">
+                <a
+                  className="brand footer-brand"
+                  href="#/"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    go('home');
+                  }}
+                >
+                  Eventados
+                </a>
+                <span className="footer-badge">
+                  <Sparkles size={13} /> Curadoria automática
+                </span>
+              </div>
+
+              <p className="footer-text">
+                O <strong>Eventados</strong> reúne todos os dias a agenda cultural de Portugal a partir das agendas municipais, salas de espetáculos,
+                entidades de turismo e promotoras — organizada por concelho, categoria e data.
+              </p>
+              <p className="footer-text muted">
+                Sem bilheteiras comerciais nem destaques pagos: cada evento liga sempre diretamente à fonte oficial.
+              </p>
+            </section>
+
+            {/* 2. COBERTURA EM PORTUGAL */}
+            <section className="footer-col footer-reach" aria-labelledby="footer-reach-title">
+              <h2 id="footer-reach-title" className="footer-heading">
+                <Compass size={19} /> Cobertura em Portugal
+              </h2>
+              <p className="footer-text muted">
+                Cobertura atual da plataforma no território nacional, calculada automaticamente a partir dos eventos em agenda.
+              </p>
+
+              <div className="reach-cards">
+                <div className="reach-card">
+                  <div className="reach-card-top">
+                    <span className="reach-icon">
+                      <MapPinned size={18} />
+                    </span>
+                    <span className="reach-tag">{stats.coveragePct}% do país</span>
+                  </div>
+                  <strong className="reach-number">
+                    {stats.municipios}/{stats.totalMunicipios}
+                  </strong>
+                  <span className="reach-label">municípios presentes</span>
+                  <div
+                    className="reach-bar"
+                    role="progressbar"
+                    aria-valuenow={stats.municipios}
+                    aria-valuemin={0}
+                    aria-valuemax={stats.totalMunicipios}
+                    aria-label="Municípios com eventos na plataforma"
+                  >
+                    <span style={{ width: `${stats.coveragePct}%` }} />
+                  </div>
+                </div>
+
+                <div className="reach-card">
+                  <div className="reach-card-top">
+                    <span className="reach-icon">
+                      <Landmark size={18} />
+                    </span>
+                    <span className="reach-tag">{stats.venueSources} salas diretas</span>
+                  </div>
+                  <strong className="reach-number">{stats.salas.toLocaleString('pt-PT')}</strong>
+                  <span className="reach-label">salas e espaços</span>
+                </div>
+              </div>
+
+              <div className="reach-summary">
+                <span>
+                  <Building2 size={15} />
+                  <strong>{stats.totalEvents.toLocaleString('pt-PT')}</strong> eventos ativos
+                </span>
+                <span className="reach-dot" aria-hidden="true">·</span>
+                <span>
+                  <strong>{stats.totalSources}</strong> fontes oficiais
+                </span>
+              </div>
+            </section>
+
+            {/* 3. CONTACTOS */}
+            <section id="contactos" className="footer-col footer-contact" aria-labelledby="footer-contact-title">
+              <h2 id="footer-contact-title" className="footer-heading">
+                <Mail size={19} /> Contactos
+              </h2>
+              <p className="footer-text muted">
+                Queres sugerir uma sala ou agenda municipal, fazer um pedido ou pedir informações? Escreve-nos por aqui.
+              </p>
+
+              <div className="contact-actions">
+                <button type="button" className="btn primary contact-submit" onClick={openModal}>
+                  <Send size={16} />
+                  Enviar mensagem
+                </button>
+              </div>
+            </section>
           </div>
 
-          <div className="footer-stats" aria-label="Propagação na plataforma">
-            <span className="footer-stat">
-              <MapPinned size={15} />
-              <strong>{stats.municipios}</strong> municípios
-            </span>
-            <span className="footer-stat">
-              <Landmark size={15} />
-              <strong>{stats.salas.toLocaleString('pt-PT')}</strong> salas
-            </span>
-          </div>
-
-          <div className="footer-actions">
-            <button
-              type="button"
-              className={page === 'sobre' ? 'footer-btn on' : 'footer-btn'}
-              onClick={() => go('sobre')}
-            >
-              <Info size={15} />
-              Sobre
-            </button>
-            <button type="button" className="footer-btn primary" onClick={openModal}>
-              <Mail size={15} />
-              Contactos
-            </button>
+          <div className="footer-bottom">
+            <p>
+              © {new Date().getFullYear()} <strong>Eventados</strong> · Agenda cultural de Portugal ({stats.municipios} municípios ·{' '}
+              {stats.salas.toLocaleString('pt-PT')} salas)
+            </p>
+            <p className="muted">Última recolha: {updatedDate}</p>
           </div>
         </div>
       </footer>
@@ -287,7 +372,7 @@ export default function Footer({ data, page, go }: { data: EventsData; page: Pag
               <div className="form-field">
                 <label htmlFor={emailId}>Email</label>
                 <span id={emailHintId} className="field-hint">
-                  Formato: nome@exemplo.pt
+                  Para te podermos responder
                 </span>
                 <input
                   type="email"
@@ -340,7 +425,7 @@ export default function Footer({ data, page, go }: { data: EventsData; page: Pag
                 required
                 rows={4}
                 maxLength={2000}
-                placeholder="Escreve aqui a tua mensagem…"
+                placeholder="Escreve aqui o teu pedido, sugestão de agenda/sala ou questão…"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onBlur={handleBlur}
@@ -360,7 +445,7 @@ export default function Footer({ data, page, go }: { data: EventsData; page: Pag
 
               {status === 'sent' && (
                 <p className="contact-feedback ok" role="status" aria-live="polite">
-                  <CheckCircle2 size={16} /> Mensagem enviada!
+                  <CheckCircle2 size={16} /> Mensagem enviada com sucesso! Obrigado.
                 </p>
               )}
               {status === 'error' && (

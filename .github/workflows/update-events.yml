@@ -73,7 +73,7 @@ jobs:
           fi
 
       - name: Recolher eventos
-        run: node scraper/index.mjs --force
+        run: node scraper/index.mjs ${{ inputs.force && '--force' || '' }}
 
       - name: Compilar app web
         run: npm run build

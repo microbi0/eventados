@@ -1313,88 +1313,189 @@ ins.adsbygoogle[data-ad-status="unfilled"] {
   white-space: nowrap;
 }
 
-/* ---------- rodapé simplificado + popup de contactos ---------- */
+/* ---------- rodapé (Sobre, Cobertura e Contactos) + popup ---------- */
 .site-footer {
-  margin-top: 40px;
-  border-top: 1px solid var(--soft-line);
+  margin-top: 48px;
+  border-top: 1.5px solid var(--soft-line);
   background: var(--surface);
   color: var(--text);
 }
-.footer-bar {
+.footer-inner {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: clamp(36px, 5vw, 64px) var(--gutter) calc(env(safe-area-inset-bottom) + 36px);
+}
+@media (max-width: 859px) {
+  .footer-inner {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 104px);
+  }
+}
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 0.9fr;
+  gap: clamp(28px, 3.5vw, 48px);
+  align-items: start;
+}
+@media (max-width: 1020px) {
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .footer-contact {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 720px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.footer-brand-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.footer-brand {
+  margin-right: 0;
+}
+.footer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--pill);
+  background: var(--bg);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.footer-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.footer-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* Cobertura em Portugal */
+.reach-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+@media (max-width: 460px) {
+  .reach-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.reach-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--bg);
+  border: 1px solid var(--soft-line);
+}
+.reach-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px 24px;
-  max-width: var(--max);
-  margin: 0 auto;
-  padding: 20px var(--gutter) calc(env(safe-area-inset-bottom) + 20px);
+  gap: 8px;
+  margin-bottom: 4px;
 }
-@media (max-width: 859px) {
-  .footer-bar {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 96px);
-  }
+.reach-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
 }
-.footer-left {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-}
-.footer-brand {
-  font-size: 24px;
-  margin-right: 0;
-}
-.footer-tagline {
-  font-size: 14px;
+.reach-tag {
+  padding: 3px 9px;
+  border-radius: var(--pill);
+  background: var(--surface);
+  font-size: 11.5px;
+  font-weight: 600;
   color: var(--muted);
 }
-.footer-stats {
+.reach-number {
+  font-family: var(--display);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+.reach-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.reach-bar {
+  width: 100%;
+  height: 7px;
+  margin: 6px 0 2px;
+  border-radius: var(--pill);
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.reach-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: var(--pill);
+  background: var(--free);
+}
+.reach-summary {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-}
-.footer-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: var(--pill);
+  padding: 10px 14px;
+  border-radius: 14px;
   background: var(--bg);
   font-size: 13.5px;
   color: var(--muted);
 }
-.footer-stat strong {
-  font-family: var(--display);
-  font-weight: 700;
-  color: var(--text);
-}
-.footer-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.footer-btn {
+.reach-summary span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 15px;
-  border-radius: var(--pill);
-  border: 1.5px solid var(--soft-line);
-  background: var(--bg);
-  font-size: 14px;
-  font-weight: 500;
-  transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
-.footer-btn:hover {
-  border-color: var(--line);
+.reach-summary strong {
+  color: var(--text);
+  font-family: var(--display);
 }
-.footer-btn.on,
-.footer-btn.primary {
-  background: var(--text);
-  color: var(--bg);
-  border-color: var(--text);
+
+.footer-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--soft-line);
+  font-size: 13.5px;
+}
+.footer-bottom p {
+  margin: 0;
 }
 
 /* Popup modal (<dialog>) de Contactos */

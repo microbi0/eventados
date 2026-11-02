@@ -62,14 +62,18 @@ jobs:
       # Servem de reserva se uma fonte falhar e para o travão de "no máximo uma recolha a cada 20 h".
       - name: Obter dados mais recentes
         run: |
-          if git fetch --depth 1 origin data 2>/dev/null; then
-            git show origin/data:events.json > public/data/events.json && echo "Dados do Umbrel"
+          if [ "${{ github.event_name }}" != "push" ]; then
+            if git fetch --depth 1 origin data 2>/dev/null; then
+              git show origin/data:events.json > public/data/events.json && echo "Dados do Umbrel"
+            else
+              curl -fsSL "${{ steps.pages.outputs.base_url }}/data/events.json" -o public/data/events.json || echo "Sem dados anteriores"
+            fi
           else
-            curl -fsSL "${{ steps.pages.outputs.base_url }}/data/events.json" -o public/data/events.json || echo "Sem dados anteriores"
+            echo "Push para main: preserva public/data/events.json do repositório"
           fi
 
       - name: Recolher eventos
-        run: node scraper/index.mjs ${{ inputs.force && '--force' || '' }}
+        run: node scraper/index.mjs --force
 
       - name: Compilar app web
         run: npm run build

@@ -12,7 +12,7 @@ import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde, fnac } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
 import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda } from './sources/municipal.mjs';
-import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita, ccco, teatroMicaelense, forumBraga, teatroLousa, mausHabitos } from './sources/venues.mjs';
+import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita, ccco, teatroMicaelense, forumBraga, teatroLousa, mausHabitos, casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 import { uguru, sonsEmTransito } from './sources/agencies.mjs';
 import { linkArtists } from './artists.mjs';
@@ -28,6 +28,7 @@ const SOURCES = [
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
   tagv, quartelDasArtes, palmela, espacoVita, tabua, ccco,
   teatroMicaelense, forumBraga, teatroLousa, mausHabitos, visitSeia, leiriagenda,
+  casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub,
   // Lojas e centros comerciais
   fnac,
   // Agências: digressões completas (por último: nos duplicados ficam os dados da sala ou agenda).
@@ -39,6 +40,7 @@ const SOURCE_KIND = {
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
   fnac: 'venue', tagv: 'venue', quarteldasartes: 'venue', palmela: 'agenda', espacovita: 'venue', tabua: 'agenda', ccco: 'venue',
   teatromicaelense: 'venue', forumbraga: 'venue', teatrolousa: 'venue', maushabitos: 'venue', visitseia: 'agenda', leiriagenda: 'agenda',
+  casadamusica: 'venue', lav: 'venue', teatrotrindade: 'venue', mariamatos: 'venue', hardclub: 'venue',
   uguru: 'agency', sonsemtransito: 'agency',
   turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',
 };

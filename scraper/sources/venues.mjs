@@ -1584,3 +1584,273 @@ export const mausHabitos = {
     return out;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Helper Ticketline por Sala
+// ---------------------------------------------------------------------------
+async function scrapeTicketlineSalas(meta, salaIds) {
+  const today = lisbonDate();
+  const out = new Map();
+  for (const sid of (Array.isArray(salaIds) ? salaIds : [salaIds])) {
+    const url = `https://www.ticketline.pt/salas/sala/${sid}`;
+    let html;
+    try {
+      html = await fetchText(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, cacheHours: 12 });
+    } catch {
+      continue;
+    }
+    const items = html.split(/<li\s+class="[^"]*"\s+itemscope\s+itemtype="http:\/\/schema\.org\/Event"/i).slice(1);
+    for (const it of items) {
+      const linkRel = it.match(/href="(\/evento\/[^"]+)"/)?.[1];
+      const startDate = it.match(/itemprop="startDate"\s+content="(\d{4}-\d{2}-\d{2})"/)?.[1];
+      const title = it.match(/itemprop="name">([^<]+)<\/p>/)?.[1]?.trim();
+      const specificVenue = it.match(/itemprop="location">([^<]+)<\/p>/)?.[1]?.trim() || meta.venue;
+      const img = it.match(/data-src-original="([^"?]+)/)?.[1];
+      if (!title || !startDate || startDate < today || !linkRel) continue;
+
+      const id = linkRel.replace(/^\/evento\/|\/$/g, '');
+      if (out.has(id)) continue;
+
+      const cleanTitle = decodeEntities(title);
+      const rawCats = [];
+      const tLower = cleanTitle.toLowerCase();
+      if (/humor|comédia|stand-up|dário guerreiro|diogo faro/i.test(tLower)) rawCats.push('Humor');
+      if (/música|concerto|banda|rock|indie|jazz|tour/i.test(tLower)) rawCats.push('Música');
+      if (/teatro|peça|poetas mortos|drama/i.test(tLower)) rawCats.push('Teatro');
+      if (/dança|bailado/i.test(tLower)) rawCats.push('Dança');
+
+      out.set(
+        id,
+        makeEvent(meta, {
+          id,
+          url: absUrl(linkRel, 'https://www.ticketline.pt'),
+          title: cleanTitle,
+          venue: specificVenue || meta.venue,
+          address: meta.address,
+          city: meta.city,
+          lat: meta.lat,
+          lon: meta.lon,
+          startDate,
+          endDate: startDate,
+          tickets: absUrl(linkRel, 'https://www.ticketline.pt'),
+          rawCategories: rawCats,
+          fallbackCategory: 'musica',
+          image: img ? absUrl(img, 'https://www.ticketline.pt') : null,
+        }),
+      );
+    }
+  }
+  return [...out.values()];
+}
+
+// ---------------------------------------------------------------------------
+// Casa da Música — Porto
+// ---------------------------------------------------------------------------
+export const casaDaMusica = {
+  meta: {
+    id: 'casadamusica',
+    name: 'Casa da Música',
+    url: 'https://casadamusica.com/agenda/',
+    venue: 'Casa da Música',
+    address: 'Avenida da Boavista 604-610, 4149-071 Porto',
+    city: 'Porto',
+    lat: 41.1589,
+    lon: -8.6307,
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const out = [];
+    const seen = new Set();
+
+    for (let page = 1; page <= 6; page++) {
+      const pageUrl = page === 1 ? this.meta.url : `https://casadamusica.com/agenda/page/${page}/`;
+      let html;
+      try {
+        html = await fetchText(pageUrl, { cacheHours: 12 });
+      } catch {
+        break;
+      }
+
+      const blocks = html.split(/<div\s+itemscope\s+itemtype="https:\/\/schema\.org\/Event"/i).slice(1);
+      if (!blocks.length) break;
+
+      for (const b of blocks) {
+        const timeMatch = b.match(/datetime="(\d{4}-\d{2}-\d{2})\s+(\d{1,2}:\d{2}):\d{2}"/);
+        const dateStr = timeMatch?.[1];
+        const hour = timeMatch?.[2];
+        const room = b.match(/text-right[^"]*uppercase[^"]*">\s*<div>([^<]+)<\/div>/i)?.[1]?.trim();
+        const title = b.match(/itemprop="name">([\s\S]*?)<\/a>/i)?.[1]?.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        const link = b.match(/href="(https:\/\/casadamusica\.com\/event\/[^"]+)"/i)?.[1];
+        const img = b.match(/<img[^>]*src="([^"]+)"/i)?.[1];
+        const desc = b.match(/itemprop="description">([\s\S]*?)<\/div>/i)?.[1]?.trim();
+        const price = b.match(/class="text-base whitespace-nowrap">([\s\S]*?)<\/span>/i)?.[1]?.replace(/&euro;/g, '€').replace(/&dash;/g, '-').replace(/\s+/g, ' ').trim();
+
+        if (!title || !dateStr || dateStr < today || !link) continue;
+
+        const id = link.replace(/\/$/, '').split('/').pop() || title;
+        if (seen.has(id)) continue;
+        seen.add(id);
+
+        const venueName = room ? `Casa da Música - ${room}` : this.meta.venue;
+        const cleanTitle = decodeEntities(title);
+
+        out.push(
+          makeEvent(this.meta, {
+            id,
+            url: link,
+            title: cleanTitle,
+            description: desc ? stripHtml(decodeEntities(desc)) : null,
+            venue: venueName,
+            address: this.meta.address,
+            city: this.meta.city,
+            lat: this.meta.lat,
+            lon: this.meta.lon,
+            startDate: dateStr,
+            endDate: dateStr,
+            timesText: hour ? hour.replace(':', 'h') : null,
+            price: price || null,
+            tickets: link,
+            rawCategories: ['Música'],
+            fallbackCategory: 'musica',
+            image: img ? absUrl(img, this.meta.url) : null,
+          }),
+        );
+      }
+    }
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// LAV — Lisboa Ao Vivo (Ticketline)
+// ---------------------------------------------------------------------------
+export const lav = {
+  meta: {
+    id: 'lav',
+    name: 'LAV - Lisboa Ao Vivo',
+    url: 'https://www.ticketline.pt/salas/sala/1585',
+    venue: 'LAV - Lisboa Ao Vivo',
+    address: 'Avenida Marechal Gomes da Costa 29, 1800-255 Lisboa',
+    city: 'Lisboa',
+    lat: 38.7562,
+    lon: -9.1026,
+  },
+  async scrape() {
+    return scrapeTicketlineSalas(this.meta, [1585, 3368, 3370]);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Teatro da Trindade INATEL — Lisboa (Ticketline)
+// ---------------------------------------------------------------------------
+export const teatroTrindade = {
+  meta: {
+    id: 'teatrotrindade',
+    name: 'Teatro da Trindade INATEL',
+    url: 'https://www.ticketline.pt/salas/sala/9',
+    venue: 'Teatro da Trindade INATEL',
+    address: 'Rua Nova da Trindade 9, 1200-301 Lisboa',
+    city: 'Lisboa',
+    lat: 38.7126,
+    lon: -9.1431,
+  },
+  async scrape() {
+    return scrapeTicketlineSalas(this.meta, [9, 14]);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Teatro Maria Matos — Lisboa (Ticketline)
+// ---------------------------------------------------------------------------
+export const mariaMatos = {
+  meta: {
+    id: 'mariamatos',
+    name: 'Teatro Maria Matos',
+    url: 'https://www.ticketline.pt/salas/sala/2791',
+    venue: 'Teatro Maria Matos',
+    address: 'Av. Frei Miguel Contreiras 52, 1700-213 Lisboa',
+    city: 'Lisboa',
+    lat: 38.7479,
+    lon: -9.1415,
+  },
+  async scrape() {
+    return scrapeTicketlineSalas(this.meta, [2791]);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Hard Club — Porto
+// ---------------------------------------------------------------------------
+export const hardClub = {
+  meta: {
+    id: 'hardclub',
+    name: 'Hard Club',
+    url: 'https://www.hardclubporto.com/PT/agenda/',
+    venue: 'Hard Club',
+    address: 'Mercado Ferreira Borges, 4050-252 Porto',
+    city: 'Porto',
+    lat: 41.1412,
+    lon: -8.6146,
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const out = [];
+    const seen = new Set();
+
+    let html;
+    try {
+      html = await fetchText('https://www.hardclubporto.com/include/ajax_functions.php?action=load-agenda&start=0&passo=50&langid=1', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'User-Agent': 'Mozilla/5.0' },
+        cacheHours: 12,
+      });
+    } catch {
+      return [];
+    }
+
+    const items = html.split(/<li\s+class="items[^"]*">/i).slice(1);
+    for (const it of items) {
+      const link = it.match(/href="([^"]+)"/)?.[1];
+      const img = it.match(/background-image:url\(([^)]+)\)/)?.[1];
+      const title = it.match(/<h3>([^<]+)/)?.[1]?.trim();
+      const day = it.match(/class="data">\s*(\d{1,2})/)?.[1];
+      const hora = it.match(/class="local_hora">([^<]+)<\/p>/)?.[1]?.trim();
+
+      if (!link || !title || !day) continue;
+
+      const yearMatch = link.match(/-(\d{4})\/$/);
+      const year = yearMatch ? yearMatch[1] : new Date().getFullYear().toString();
+
+      const id = link.replace(/^\/PT\/evento\/|\/$/g, '');
+      if (seen.has(id)) continue;
+      seen.add(id);
+
+      const curM = String(new Date().getMonth() + 1).padStart(2, '0');
+      let dateStr = `${year}-${curM}-${day.padStart(2, '0')}`;
+      if (dateStr < today) {
+        const nextM = String((new Date().getMonth() + 2) % 12 || 12).padStart(2, '0');
+        dateStr = `${year}-${nextM}-${day.padStart(2, '0')}`;
+      }
+
+      out.push(
+        makeEvent(this.meta, {
+          id,
+          url: absUrl(link, 'https://www.hardclubporto.com'),
+          title: decodeEntities(title),
+          venue: this.meta.venue,
+          address: this.meta.address,
+          city: this.meta.city,
+          lat: this.meta.lat,
+          lon: this.meta.lon,
+          startDate: dateStr,
+          endDate: dateStr,
+          timesText: hora || null,
+          rawCategories: ['Música'],
+          fallbackCategory: 'musica',
+          image: img ? absUrl(img, 'https://www.hardclubporto.com') : null,
+        }),
+      );
+    }
+
+    return out;
+  },
+};

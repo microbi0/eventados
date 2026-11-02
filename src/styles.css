@@ -1022,9 +1022,25 @@ h1, h2, h3 { letter-spacing: -0.02em; }
   width: 100%;
   min-height: 90px;
 }
-ins.adsbygoogle[data-ad-status="unfilled"] {
-  height: 60px !important;
+.home-ad-banner.ad-loading,
+.card.ad-card.ad-loading,
+.row.ad-row.ad-loading {
+  max-height: 0 !important;
   min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  opacity: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+.home-ad-banner:has(ins[data-ad-status="unfilled"]),
+.card.ad-card:has(ins[data-ad-status="unfilled"]),
+.row.ad-row:has(ins[data-ad-status="unfilled"]),
+ins.adsbygoogle[data-ad-status="unfilled"] {
+  display: none !important;
 }
 .ad-demo-banner {
   display: flex;

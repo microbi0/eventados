@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Megaphone } from 'lucide-react';
 
 declare global {
@@ -6,6 +6,8 @@ declare global {
     adsbygoogle?: unknown[];
   }
 }
+
+export type AdStatus = 'loading' | 'filled' | 'unfilled';
 
 /**
  * Configuração dos anúncios Google Ads / AdSense.
@@ -46,10 +48,11 @@ interface AdSlotProps {
   layoutKey?: string;
   className?: string;
   style?: React.CSSProperties;
+  onStatusChange?: (status: AdStatus) => void;
 }
 
 /**
- * Componente base que encapsula exatamente o bloco <ins class="adsbygoogle" /> oficial do Google AdSense.
+ * Componente base que encapsula o bloco <ins class="adsbygoogle" /> e deteta se o anúncio foi preenchido.
  */
 export function GoogleAdSlot({
   slot,
@@ -59,6 +62,7 @@ export function GoogleAdSlot({
   layoutKey,
   className,
   style,
+  onStatusChange,
 }: AdSlotProps) {
   const adRef = useRef<HTMLModElement>(null);
   const pushedRef = useRef(false);
@@ -68,11 +72,33 @@ export function GoogleAdSlot({
     const el = adRef.current;
     if (typeof window === 'undefined' || !el) return;
 
+    const checkStatus = () => {
+      const adStatus = el.getAttribute('data-ad-status');
+      if (adStatus === 'filled') {
+        onStatusChange?.('filled');
+        return true;
+      }
+      if (adStatus === 'unfilled') {
+        onStatusChange?.('unfilled');
+        return true;
+      }
+      return false;
+    };
+
+    const observer = new MutationObserver(() => {
+      checkStatus();
+    });
+    observer.observe(el, {
+      attributes: true,
+      attributeFilter: ['data-ad-status', 'data-adsbygoogle-status'],
+    });
+
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     const tryPush = (attempt = 0) => {
       if (pushedRef.current || !adRef.current) return;
       if (adRef.current.getAttribute('data-adsbygoogle-status')) {
         pushedRef.current = true;
+        checkStatus();
         return;
       }
       if (adRef.current.offsetWidth === 0 && attempt < 15) {
@@ -82,18 +108,27 @@ export function GoogleAdSlot({
       try {
         pushedRef.current = true;
         (window.adsbygoogle = window.adsbygoogle || []).push({});
-      } catch (e) {
-        console.debug('Erro ao inicializar Google AdSense:', e);
+      } catch {
+        onStatusChange?.('unfilled');
       }
     };
 
     const raf = requestAnimationFrame(() => tryPush());
 
+    // Se o AdSense não preencher o bloco em 2.5s (ex.: AdBlock ou sem inventário), remove a caixa
+    const fallbackTimer = setTimeout(() => {
+      if (!checkStatus() && el.getAttribute('data-ad-status') !== 'filled') {
+        onStatusChange?.('unfilled');
+      }
+    }, 2500);
+
     return () => {
       cancelAnimationFrame(raf);
       if (retryTimer) clearTimeout(retryTimer);
+      clearTimeout(fallbackTimer);
+      observer.disconnect();
     };
-  }, [slot]);
+  }, [slot, onStatusChange]);
 
   return (
     <ins
@@ -111,17 +146,26 @@ export function GoogleAdSlot({
 }
 
 /**
- * 1. Banner da Home (bloco 1160512650 / 6221267648)
+ * 1. Banner da Home — só aparece se existir anúncio preenchido (`filled`).
  */
 export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: string }) {
+  const [status, setStatus] = useState<AdStatus>('loading');
+
+  if (status === 'unfilled') return null;
+
   return (
-    <section className="home-ad-banner" aria-label="Espaço publicitário">
-      <div className="home-ad-header">
-        <span className="ad-badge-tag">
-          <Megaphone size={12} /> Publicidade
-        </span>
-        <span className="ad-provider-tag">Google Ads</span>
-      </div>
+    <section
+      className={`home-ad-banner ${status === 'loading' ? 'ad-loading' : ''}`.trim()}
+      aria-label="Espaço publicitário"
+    >
+      {status === 'filled' && (
+        <div className="home-ad-header">
+          <span className="ad-badge-tag">
+            <Megaphone size={12} /> Publicidade
+          </span>
+          <span className="ad-provider-tag">Google Ads</span>
+        </div>
+      )}
 
       <div className="home-ad-content">
         <GoogleAdSlot
@@ -129,6 +173,7 @@ export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: st
           format="auto"
           fullWidthResponsive={true}
           className="home-ad-ins"
+          onStatusChange={setStatus}
         />
       </div>
     </section>
@@ -136,26 +181,36 @@ export function HomeAdBanner({ slot = ADS_CONFIG.slots.homeBanner }: { slot?: st
 }
 
 /**
- * 2. Cartão de Anúncio In-Feed entre os eventos (bloco 6221267648)
+ * 2. Cartão de Anúncio In-Feed entre os eventos — só aparece se existir anúncio preenchido (`filled`).
  */
 export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?: number }) {
+  const [status, setStatus] = useState<AdStatus>('loading');
   const slot = ADS_CONFIG.slots.eventsFeed;
+
+  if (status === 'unfilled') return null;
 
   if (compact) {
     return (
-      <article className="row ad-row" style={{ animationDelay: `${(index % 30) * 30}ms` }} aria-label="Anúncio patrocinado">
+      <article
+        className={`row ad-row ${status === 'loading' ? 'ad-loading' : ''}`.trim()}
+        style={{ animationDelay: `${(index % 30) * 30}ms` }}
+        aria-label="Anúncio patrocinado"
+      >
         <div className="ad-row-slot">
-          <div className="home-ad-header">
-            <span className="ad-badge-tag">
-              <Megaphone size={11} /> Publicidade
-            </span>
-            <span className="ad-provider-tag">Google Ads</span>
-          </div>
+          {status === 'filled' && (
+            <div className="home-ad-header">
+              <span className="ad-badge-tag">
+                <Megaphone size={11} /> Publicidade
+              </span>
+              <span className="ad-provider-tag">Google Ads</span>
+            </div>
+          )}
           <GoogleAdSlot
             slot={slot}
             format="auto"
             fullWidthResponsive={false}
             className="ad-row-ins"
+            onStatusChange={setStatus}
           />
         </div>
       </article>
@@ -163,19 +218,26 @@ export function EventAdCard({ compact, index = 0 }: { compact?: boolean; index?:
   }
 
   return (
-    <article className="card ad-card" style={{ animationDelay: `${(index % 30) * 45}ms` }} aria-label="Anúncio patrocinado">
+    <article
+      className={`card ad-card ${status === 'loading' ? 'ad-loading' : ''}`.trim()}
+      style={{ animationDelay: `${(index % 30) * 45}ms` }}
+      aria-label="Anúncio patrocinado"
+    >
       <div className="ad-card-slot">
-        <div className="home-ad-header">
-          <span className="ad-badge-tag">
-            <Megaphone size={12} /> Publicidade
-          </span>
-          <span className="ad-provider-tag">Google Ads</span>
-        </div>
+        {status === 'filled' && (
+          <div className="home-ad-header">
+            <span className="ad-badge-tag">
+              <Megaphone size={12} /> Publicidade
+            </span>
+            <span className="ad-provider-tag">Google Ads</span>
+          </div>
+        )}
         <GoogleAdSlot
           slot={slot}
           format="auto"
           fullWidthResponsive={false}
           className="ad-card-ins"
+          onStatusChange={setStatus}
         />
       </div>
     </article>

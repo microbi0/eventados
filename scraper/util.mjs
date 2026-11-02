@@ -84,10 +84,10 @@ function parseRobots(txt) {
     if (field === 'allow' || field === 'disallow') current.rules.push({ allow: field === 'allow', path: value });
     if (field === 'crawl-delay') current.crawlDelay = Number(value) || null;
   }
-  // Interpretação conservadora: um grupo aplica-se se o nome indicado estiver contido no nosso
-  // (ex.: "bot" aplica-se a "eventadosbot"). Na falta de grupo específico, vale o "*".
+  // Interpretação padrão (RFC 9309): o grupo aplica-se se for igual ou prefixo do nosso bot
+  // (ex.: "eventados" aplica-se a "eventadosbot"). Na falta de grupo específico, vale o "*".
   const me = BOT.toLowerCase();
-  const specific = groups.filter((g) => g.agents.some((a) => a !== '*' && a && me.includes(a)));
+  const specific = groups.filter((g) => g.agents.some((a) => a !== '*' && a && (a === me || me.startsWith(a))));
   const chosen = specific.length ? specific : groups.filter((g) => g.agents.includes('*'));
   return {
     rules: chosen.flatMap((g) => g.rules).filter((r) => r.path || r.allow === false),
@@ -140,7 +140,7 @@ export async function allowedByRobots(url) {
 
 // ---------------------------------------------------------------- pedido principal
 // cacheHours: durante quanto tempo uma resposta guardada é usada sem contactar o servidor.
-export async function fetchText(url, { retries = 2, cacheHours = DEFAULT_CACHE_HOURS, timeoutMs = 30_000 } = {}) {
+export async function fetchText(url, { retries = 2, cacheHours = DEFAULT_CACHE_HOURS, timeoutMs = 30_000, headers = {} } = {}) {
   const entry = await readCache(url);
   if (entry && Date.now() - entry.at < cacheHours * 3600_000) {
     stats.cacheHits++;
@@ -152,7 +152,7 @@ export async function fetchText(url, { retries = 2, cacheHours = DEFAULT_CACHE_H
   }
   const host = new URL(url).host;
   for (let attempt = 0; ; attempt++) {
-    const conditional = {};
+    const conditional = { ...headers };
     if (entry?.etag) conditional['If-None-Match'] = entry.etag;
     if (entry?.lastModified) conditional['If-Modified-Since'] = entry.lastModified;
     const res = await throttled(host, () => rawFetch(url, conditional, timeoutMs)).catch((err) => ({ error: err }));

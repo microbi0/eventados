@@ -131,3 +131,83 @@ export const quartelDasArtes = municipalPlatform({
   city: 'Oliveira do Bairro',
 });
 export const palmela = municipalPlatform({ id: 'palmela', name: 'CM Palmela', url: 'https://www.cm-palmela.pt/viver/cultura/agenda-de-eventos', city: 'Palmela' });
+
+// ---------------------------------------------------------------------------
+// Tábua — O Encanto das Beiras (Portal Turístico / Agenda Municipal)
+// ---------------------------------------------------------------------------
+export const tabua = {
+  meta: {
+    id: 'tabua',
+    name: 'Portal Turístico de Tábua',
+    url: 'https://tabuaoencantodasbeiras.pt/em-agenda/',
+    city: 'Tábua',
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const raw = await fetchText('https://tabuaoencantodasbeiras.pt/wp-json/smartgov-saida/v1/eventos').catch(() => '{"data":{"items":[]}}');
+    let json = null;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+    const items = json?.data?.items ?? [];
+    const out = [];
+
+    for (const it of items) {
+      if (it.status && it.status !== 'publish') continue;
+
+      let start = null;
+      let end = null;
+      if (it.date?.mode === 'range' && it.date.range) {
+        start = it.date.range.start ? it.date.range.start.slice(0, 10) : null;
+        end = it.date.range.end ? it.date.range.end.slice(0, 10) : start;
+      } else if (it.date?.date) {
+        start = it.date.date.slice(0, 10);
+        end = start;
+      }
+
+      if (!start) continue;
+      if (!end) end = start;
+      if (end < today) continue;
+
+      const rawContent = (it.content || []).map((c) => c.setup?.text || '').join('\n');
+      const timeMatch = rawContent.match(/Hora:\s*(\d{1,2}[:hH]\d{2})/i) || rawContent.match(/(\d{1,2}[:hH]\d{2})/);
+      const timesText = timeMatch ? timeMatch[1].replace(':', 'h').toLowerCase() : null;
+
+      const desc = stripHtml(rawContent).replace(/\s+/g, ' ').trim();
+      const venue = it.address ? stripHtml(it.address).trim() : 'Tábua';
+      const isCCT = /Centro Cultural/i.test(venue);
+
+      const rawCats = Array.isArray(it.category) ? it.category.map((c) => (typeof c === 'string' ? c : c?.name)).filter(Boolean) : [];
+      const titleLower = it.title.toLowerCase();
+      if (/cinema/i.test(titleLower)) rawCats.push('Cinema');
+      if (/exposição|pintura|arte/i.test(titleLower)) rawCats.push('Arte');
+      if (/concerto|música|coral|bárbara tinoco|miguel araújo|vizinhos/i.test(titleLower)) rawCats.push('Música');
+      if (/dário guerreiro|joão baião|humor|stand-up|comédia/i.test(titleLower)) rawCats.push('Humor');
+      if (/teatro|peixes de antónio|eu preciso disto|psicólogo por um dia/i.test(titleLower)) rawCats.push('Teatro');
+      if (/caminhada|ténis|desporto|corrida|futebol|fit|ginástica/i.test(titleLower)) rawCats.push('Desporto');
+      if (/magusto|jantar|almoço|feira|festa|igualdades/i.test(titleLower)) rawCats.push('Feiras');
+      if (/arte de conversar|conversas|livro|literatura/i.test(titleLower)) rawCats.push('Conversas');
+
+      out.push(
+        makeEvent(this.meta, {
+          id: String(it.id),
+          url: 'https://tabuaoencantodasbeiras.pt/em-agenda/',
+          title: decodeEntities(it.title),
+          description: desc || null,
+          venue: venue || 'Tábua',
+          address: isCCT ? 'Avenida Dr. Florindo Madeira, 3420-307 Tábua' : venue,
+          lat: isCCT ? 40.3609 : 40.3323,
+          lon: isCCT ? -8.0287 : -8.0165,
+          startDate: start,
+          endDate: end,
+          timesText,
+          rawCategories: rawCats,
+          image: it.image?.url ?? null,
+        }),
+      );
+    }
+    return out;
+  },
+};

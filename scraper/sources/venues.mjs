@@ -1085,3 +1085,121 @@ export const espacoVita = {
     return out;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Casa da Cultura César Oliveira (CCCO - Oliveira do Hospital)
+// Website oficial: https://www.ccco.pt/
+// Bilheteira / Programação ativa: https://www.ticketline.pt/salas/sala/4148
+// ---------------------------------------------------------------------------
+export const ccco = {
+  meta: {
+    id: 'ccco',
+    name: 'Casa da Cultura César Oliveira',
+    url: 'https://www.ccco.pt/',
+    city: 'Oliveira do Hospital',
+  },
+  async scrape() {
+    const today = lisbonDate();
+    const out = new Map();
+
+    // 1. Bilheteira oficial na Ticketline (sala 4148 da CCCO)
+    const tlHtml = await fetchText('https://www.ticketline.pt/salas/sala/4148', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+    }).catch(() => '');
+
+    if (tlHtml) {
+      const blocks = tlHtml.split(/schema\.org\/Event/);
+      for (let i = 1; i < blocks.length; i++) {
+        const b = blocks[i];
+        const urlMatch = b.match(/href="([^"]+)"/);
+        const dateMatch = b.match(/data-date="([^"]+)"/);
+        const titleMatch = b.match(/class="title"[^>]*>([\s\S]*?)<\/p>/);
+        const catMatch = b.match(/class="metadata categories"[^>]*>([\s\S]*?)<\/p>/);
+        const imgMatch = b.match(/data-src-original="([^"]+)"/) || b.match(/src="([^"]+)"/);
+
+        if (!urlMatch || !titleMatch || !dateMatch) continue;
+
+        const title = decodeEntities(titleMatch[1].replace(/<[^>]+>/g, '').trim());
+        const date = dateMatch[1];
+        if (date < today) continue;
+
+        const url = 'https://www.ticketline.pt' + urlMatch[1];
+        const img = imgMatch ? (imgMatch[1].startsWith('http') ? imgMatch[1] : 'https://www.ticketline.pt' + imgMatch[1]) : null;
+        const cat = catMatch ? catMatch[1].trim() : null;
+
+        const rawCats = [];
+        if (cat) rawCats.push(cat);
+        const titleLower = title.toLowerCase();
+        if (/dário guerreiro|jel|humor|comédia|stand-up/i.test(titleLower)) rawCats.push('Humor');
+        if (/concert|guitar|uhf|música|fado|rock|jazz/i.test(titleLower)) rawCats.push('Música');
+        if (/arte|teatro|peça/i.test(titleLower)) rawCats.push('Teatro');
+
+        const id = url.split('/').filter(Boolean).pop();
+        out.set(
+          id,
+          makeEvent(this.meta, {
+            id,
+            url,
+            title,
+            venue: 'Casa da Cultura César Oliveira',
+            address: 'Rua do Colégio, 3400-065 Oliveira do Hospital',
+            lat: 40.3589,
+            lon: -7.8608,
+            startDate: date,
+            endDate: date,
+            tickets: url,
+            rawCategories: rawCats,
+            fallbackCategory: 'teatro',
+            image: img,
+          }),
+        );
+      }
+    }
+
+    // 2. Página oficial ccco.pt (se tiver eventos além de "EM BREVE")
+    const siteHtml = await fetchText('https://www.ccco.pt/').catch(() => '');
+    if (siteHtml) {
+      const cards = siteHtml.split(/<article\s+class="program-card">/);
+      for (let i = 1; i < cards.length; i++) {
+        const card = cards[i].split('</article>')[0];
+        const dateText = card.match(/class="program-card-date"[^>]*>([\s\S]*?)<\/span>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+        if (!dateText || /em breve/i.test(dateText)) continue;
+
+        const title = card.match(/<h3[^>]*>([\s\S]*?)<\/h3>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+        const category = card.match(/class="program-card-category"[^>]*>([\s\S]*?)<\/span>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+        const desc = card.match(/<p>([\s\S]*?)<\/p>/)?.[1]?.replace(/<[^>]+>/g, '').trim();
+        const img = card.match(/<img[^>]+src="([^"]+)"/)?.[1];
+        const ticketLink = card.match(/href="([^"]*(?:ticketline|bol\.pt|ccco)[^"]*)"/)?.[1];
+
+        const dates = parsePtDateRange(dateText);
+        if (!title || !dates || dates.end < today) continue;
+
+        const id = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        if (out.has(id)) continue;
+
+        out.set(
+          id,
+          makeEvent(this.meta, {
+            id,
+            url: ticketLink || 'https://www.ccco.pt/#programacao',
+            title: decodeEntities(title),
+            description: desc || null,
+            venue: 'Casa da Cultura César Oliveira',
+            address: 'Rua do Colégio, 3400-065 Oliveira do Hospital',
+            lat: 40.3589,
+            lon: -7.8608,
+            startDate: dates.start,
+            endDate: dates.end,
+            datesText: dateText,
+            tickets: ticketLink || null,
+            rawCategories: category ? [category] : [],
+            fallbackCategory: 'teatro',
+            image: img ? absUrl(img, this.meta.url) : null,
+          }),
+        );
+      }
+    }
+
+    return [...out.values()];
+  },
+};

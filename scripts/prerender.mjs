@@ -106,7 +106,7 @@ async function page(path, { title, description, canonical = SITE + path, initial
     `<meta property="og:title" content="${esc(title)}" />`,
     `<meta property="og:description" content="${esc(clip(description, 200))}" />`,
     `<meta property="og:url" content="${esc(canonical)}" />`,
-    image ? `<meta property="og:image" content="${esc(image)}" />` : '',
+    `<meta property="og:image" content="${esc(image || `${SITE}/og.jpg`)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     ...ld.map(jsonLd),
   ]
@@ -172,6 +172,7 @@ for (const e of upcoming) {
   const cat = e.categories.find((c) => CAT_SEO[c]);
   const where = [e.venue, e.city].filter(Boolean).join(', ');
   const prices = (e.price ?? '').match(/\d+(?:[.,]\d+)?/g)?.map((n) => Number(n.replace(',', '.'))) ?? [];
+  const performers = (e.artists ?? []).map((id) => data.artists?.[id]).filter(Boolean);
   const event = {
     '@context': 'https://schema.org',
     '@type': 'Event',
@@ -188,10 +189,25 @@ for (const e of upcoming) {
       address: { '@type': 'PostalAddress', streetAddress: e.address || undefined, addressLocality: e.city, addressRegion: e.district || undefined, addressCountry: 'PT' },
       ...(e.lat != null && e.lon != null ? { geo: { '@type': 'GeoCoordinates', latitude: e.lat, longitude: e.lon } } : {}),
     },
-    ...(e.image ? { image: [e.image] } : {}),
+    // Sem cartaz: a fotografia do artista ou, em último caso, a imagem genérica do Eventados.
+    image: [e.image || performers.find((a) => a.photo)?.photo || `${SITE}/og.jpg`],
     organizer: { '@type': 'Organization', name: e.sourceName, url: e.url },
-    ...(e.isFree || prices.length
-      ? { offers: { '@type': 'Offer', url: e.tickets || e.url, price: e.isFree ? 0 : Math.min(...prices), priceCurrency: 'EUR', availability: 'https://schema.org/InStock' } }
+    // Oferta sempre com o link de bilhetes/informação; o preço só quando a fonte o indica.
+    offers: {
+      '@type': 'Offer',
+      url: e.tickets || e.url,
+      availability: /esgotad/i.test(`${e.title} ${e.subtitle ?? ''}`) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+      ...(e.isFree || prices.length ? { price: e.isFree ? 0 : Math.min(...prices), priceCurrency: 'EUR' } : {}),
+    },
+    // Artistas identificados no evento (ver scraper/artists.mjs); sem artista conhecido, o campo fica de fora.
+    ...(performers.length
+      ? {
+          performer: performers.map((a) => ({
+            '@type': a.type === 'banda' ? 'MusicGroup' : 'Person',
+            name: a.name,
+            ...(a.photo ? { image: a.photo } : {}),
+          })),
+        }
       : {}),
   };
   const facts = [
@@ -203,7 +219,7 @@ for (const e of upcoming) {
   await page(eventPath(e), {
     title: `${e.title} — ${where} | Eventados`,
     description: `${e.title}: ${span(e)}${e.timesText ? `, ${e.timesText}` : ''}${e.venue ? `, ${e.venue}` : ''} ${inPlace(e.city)}. ${e.subtitle ?? e.description ?? ''}`,
-    image: e.image,
+    image: e.image || performers.find((a) => a.photo)?.photo || `${SITE}/og.jpg`,
     initial: { page: 'eventos', city: e.city, eventId: e.id },
     ld: [event, crumbs([['Eventados', '/'], [`Eventos ${inPlace(e.city)}`, cityPath(e.city)], ...(cat ? [[`${CAT_SEO[cat].title} ${inPlace(e.city)}`, catPath(e.city, cat)]] : []), [e.title, eventPath(e)]])],
     body: `<nav><a href="/">Eventados</a> › <a href="${cityPath(e.city)}">Eventos ${esc(inPlace(e.city))}</a>${cat ? ` › <a href="${catPath(e.city, cat)}">${esc(CAT_SEO[cat].title)}</a>` : ''}</nav>

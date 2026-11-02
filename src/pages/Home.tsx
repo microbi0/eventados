@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useMemo, useState, type FormEvent } from 'react';
 import { ArrowRight, ChevronDown, Gift, Landmark, Search, Sun, CalendarRange } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import type { DateRange } from '../dates';
@@ -7,7 +7,7 @@ import { placeParts } from '../places';
 import Spotlight, { useTone, type Spot } from '../Spotlight';
 import { EventCard, stagger } from '../ui';
 import { styleOf } from '../categories';
-import { HomeAdBanner } from '../ads';
+import { ADS_CONFIG, EventAdCard, HomeAdBanner } from '../ads';
 
 interface Props {
   data: EventsData;
@@ -121,6 +121,9 @@ export default function Home({ data, city, onSelect, onPickPlace, onExplore }: P
 
       <Shelf title="Hoje" icon={Sun} hits={sections.today} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'today' })} />
       <Shelf title="Este fim de semana" icon={CalendarRange} hits={sections.weekend} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'weekend' })} />
+
+      <HomeAdBanner slot={ADS_CONFIG.slots.eventsFeed} />
+
       <Shelf title="Nas salas de espetáculos" icon={Landmark} hits={sections.venues} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'month', cats: ['teatro', 'danca', 'humor', 'musica'] })} />
       <Shelf title="Gratuitos esta semana" icon={Gift} hits={sections.free} data={data} city={city} onSelect={onSelect} onMore={() => onExplore({ range: 'week', freeOnly: true })} />
     </div>
@@ -145,6 +148,7 @@ function Shelf({
   onMore: () => void;
 }) {
   if (!hits.length) return null;
+  const adPos = Math.min(2, hits.length - 1);
   return (
     <section className="shelf">
       <div className="shelf-head">
@@ -158,7 +162,10 @@ function Shelf({
       </div>
       <div className="shelf-track">
         {hits.map(({ e }, i) => (
-          <EventCard key={e.id} e={e} labels={data.categories} tag={e.categories[0]} showCity={city === ALL} index={i} onOpen={() => onSelect(e)} />
+          <Fragment key={e.id}>
+            <EventCard e={e} labels={data.categories} tag={e.categories[0]} showCity={city === ALL} index={i} onOpen={() => onSelect(e)} />
+            {i === adPos && <EventAdCard index={i + 1} />}
+          </Fragment>
         ))}
       </div>
     </section>

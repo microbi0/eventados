@@ -149,9 +149,9 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
           {(() => {
             let totalRendered = 0;
-            // Anúncios no meio da lista: depois do 6.º evento e depois a cada 12 (não só no fim de cada página).
-            const AD_FIRST = 6;
-            const AD_INTERVAL = 12;
+            // Anúncios no meio da lista: depois do 4.º evento (ou no fim se houver menos de 4) e depois a cada 8.
+            const AD_FIRST = Math.min(4, visible.length);
+            const AD_INTERVAL = 8;
             return groups.map((g, gi) => (
               <section key={g.day} className="day">
                 {(query.trim() || (range !== 'today' && range !== 'tomorrow')) && (

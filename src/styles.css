@@ -27,7 +27,8 @@
   --ease: cubic-bezier(0.65, 0, 0.35, 1);
   --font: 'Switzer', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --logo: 'Styro', 'Switzer', system-ui, sans-serif;
-  --display: 'Brioche', 'Gabarito', 'Switzer', system-ui, sans-serif;
+  --title: 'Brioche', 'Gabarito', 'Switzer', system-ui, sans-serif;
+  --display: 'Gabarito', 'Switzer', system-ui, sans-serif;
   --free: #c9f27a;
   --glass: rgb(255 255 255 / 0.68);
   color-scheme: light;
@@ -64,12 +65,15 @@ a { color: inherit; }
 svg { flex: none; }
 .muted { color: var(--muted); }
 
-/* Títulos em Brioche */
-h1, h2, h3, .spot-rank strong, .stats strong, .day-strip strong, .fact-value {
+/* Títulos (h1, h2, h3) em Brioche mais comprimida e fina (peso 300/400); restantes valores em Gabarito/Switzer */
+.spot-rank strong, .stats strong, .day-strip strong, .fact-value {
   font-family: var(--display);
-  font-size-adjust: from-font;
 }
-h1, h2, h3 { letter-spacing: -0.02em; }
+h1, h2, h3 {
+  font-family: var(--title);
+  font-weight: 400 !important;
+  letter-spacing: -0.015em;
+}
 
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: currentColor; margin-left: 2px; animation: pop 0.3s var(--ease); }
 
@@ -438,16 +442,22 @@ h1, h2, h3 { letter-spacing: -0.02em; }
 .detail-content .free-badge { left: 16px; right: auto; top: 16px; width: 76px; height: 76px; font-size: 15px; }
 .spot-media .free-badge { width: 84px; height: 84px; font-size: 16px; top: 18px; right: 18px; }
 
-.card .body { padding: 14px 16px 18px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1; }
+.card .body { padding: 14px 16px 14px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1; }
 .card .body .tag { margin-bottom: 2px; }
 .meta-row { display: flex; gap: 8px; margin: 0; font-size: 14.5px; line-height: 1.35; }
 .meta-row svg { margin-top: 1px; }
-.meta-row.when { align-items: center; flex-wrap: wrap; column-gap: 6px; }
+.meta-row.when { align-items: center; flex-wrap: wrap; column-gap: 10px; }
 .meta-row.when svg { margin-top: 0; }
-.meta-row.when svg + span + svg { margin-left: 8px; }
-.card .meta-row { color: var(--muted); }
+.when-date, .when-time { display: inline-flex; align-items: center; gap: 6px; }
+.card-foot { margin-top: auto; width: 100%; display: flex; flex-direction: column; padding-top: 6px; }
+.card .meta-row { color: var(--muted); width: 100%; border-top: 1px solid var(--soft-line); padding: 10px 0; }
+.card .meta-row:last-child { padding-bottom: 0; }
+.card .meta-row.when { padding: 0; align-items: stretch; gap: 0; }
+.card .when-date { padding: 10px 14px 0 0; }
+.card .when-time { padding: 10px 0 0 14px; border-left: 1px solid var(--soft-line); }
 .card .meta-row span { overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-.card h3 { margin: 0 0 4px; font-size: 22px; font-weight: 700; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.card .when-date, .card .when-time { display: inline-flex; -webkit-line-clamp: unset; overflow: visible; }
+.card h3 { margin: 0 0 4px; font-size: 22px; font-weight: 400; line-height: 1.12; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .subtitle { margin: 2px 0 0; color: var(--muted); font-size: 15px; }
 .card .subtitle { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 

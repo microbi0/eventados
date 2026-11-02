@@ -55,15 +55,18 @@ export function FreeBadge({ small }: { small?: boolean }) {
 
 // Data e hora na mesma linha, cada uma com o seu ícone.
 export function WhenRow({ e }: { e: EventItem }) {
+  const time = oneTime(e.timesText);
   return (
     <p className="meta-row when">
-      <CalendarDays size={16} strokeWidth={2.2} />
-      <span>{formatSpan(e)}</span>
-      {oneTime(e.timesText) && (
-        <>
+      <span className="when-date">
+        <CalendarDays size={16} strokeWidth={2.2} />
+        <span>{formatSpan(e)}</span>
+      </span>
+      {time && (
+        <span className="when-time">
           <Clock size={16} strokeWidth={2.2} />
-          <span>{oneTime(e.timesText)}</span>
-        </>
+          <span>{time}</span>
+        </span>
       )}
     </p>
   );
@@ -134,8 +137,10 @@ export function EventCard({ e, labels, tag, showCity, active, index = 0, onOpen 
         <div className="body">
           <Tag id={tag} label={labels[tag] ?? 'Outros'} />
           <h3>{e.title}</h3>
-          {place && <MetaRow icon={MapPin}>{place}</MetaRow>}
-          <WhenRow e={e} />
+          <div className="card-foot">
+            {place && <MetaRow icon={MapPin}>{place}</MetaRow>}
+            <WhenRow e={e} />
+          </div>
         </div>
       </button>
       <SaveButton e={e} />

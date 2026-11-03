@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { App as CapApp } from '@capacitor/app';
-import { Bookmark, House, Info, LayoutList, Map as MapIcon, MapPin, Mic2, X } from 'lucide-react';
+import { Bookmark, House, LayoutList, Map as MapIcon, MapPin, Mic2, X } from 'lucide-react';
 import type { EventItem, EventsData } from './types';
 import { loadEvents } from './data';
 import type { DateRange } from './dates';
@@ -12,6 +12,7 @@ import Home from './pages/Home';
 import Events from './pages/Events';
 import MapPage from './pages/MapPage';
 import About from './pages/About';
+import Coverage from './pages/Coverage';
 import MyEvents from './pages/MyEvents';
 import Artists from './pages/Artists';
 import Nav, { type NavItem } from './Nav';
@@ -25,8 +26,12 @@ const NAV: (NavItem & { short?: string })[] = [
   { id: 'artistas', label: 'Artistas', icon: Mic2 },
   { id: 'mapa', label: 'Mapa', icon: MapIcon },
   { id: 'meus', label: 'Os meus eventos', short: 'Os meus', icon: Bookmark },
-  { id: 'sobre', label: 'Sobre', icon: Info },
 ];
+
+// No menu de cima o logótipo já leva à Home.
+const TOP_NAV = NAV.filter((it) => it.id !== 'home');
+// No telemóvel o mapa fica de fora (o ecrã é pequeno para ele).
+const TAB_NAV = NAV.filter((it) => it.id !== 'mapa');
 
 export default function App() {
   const [data, setData] = useState<EventsData | null>(null);
@@ -46,7 +51,6 @@ export default function App() {
   const [pickingCity, setPickingCity] = useState(false);
 
   // ≥ 1100 px: 3 colunas com detalhe ao lado; ≥ 860 px: filtros numa coluna à esquerda.
-  const wide = useMediaQuery('(min-width: 1100px)');
   const sidebar = useMediaQuery('(min-width: 860px)');
 
   useEffect(() => {
@@ -128,9 +132,6 @@ export default function App() {
     </button>
   );
 
-  // Na página Eventos em ecrã largo o detalhe vive na 3.ª coluna; nos outros casos abre por cima.
-  const detailInColumn = page === 'eventos' && wide;
-
   return (
     <>
       <header className="top">
@@ -138,7 +139,7 @@ export default function App() {
           <a className="brand" href="#/" onClick={() => go('home')} aria-label="Eventados — início">
             Eventados
           </a>
-          {sidebar && <Nav items={NAV} page={page} go={go} />}
+          {sidebar && <Nav items={TOP_NAV} page={page} go={go} />}
           <div className="header-tools">{freeToggle}</div>
           {sidebar ? (
             <CityDropdown cities={cities} total={prefEvents.length} current={city} label={cityLabel} onPick={pickCity} radius={radius} onRadius={setRadius} />
@@ -173,7 +174,6 @@ export default function App() {
             city={city}
             selected={selected}
             onSelect={setSelected}
-            wide={wide}
             sidebar={sidebar}
             range={range}
             setRange={setRange}
@@ -187,13 +187,14 @@ export default function App() {
         {page === 'artistas' && <Artists data={shown} onSelect={setSelected} />}
         {page === 'meus' && <MyEvents data={data} shown={shown.events} cities={allCities} onSelect={setSelected} />}
         {page === 'sobre' && <About data={data} />}
+        {page === 'cobertura' && <Coverage data={data} onPickCity={(c) => { pickCity(c); go('eventos'); }} />}
       </div>
 
       <Footer data={data} page={page} go={go} />
 
       {!sidebar && (
         <nav className="tabbar" aria-label="Menu">
-          {NAV.map(({ id, label, short, icon: Icon }) => (
+          {TAB_NAV.map(({ id, label, short, icon: Icon }) => (
             <button key={id} className={page === id ? 'on' : ''} onClick={() => go(id)} aria-current={page === id ? 'page' : undefined}>
               <Icon size={21} />
               <span>{short ?? label}</span>
@@ -224,7 +225,7 @@ export default function App() {
         </div>
       )}
 
-      {selected && !detailInColumn && (
+      {selected && (
         <Sheet className="detail" label={selected.title} onClose={closeDetail}>
           <DetailContent e={selected} labels={data.categories} artists={data.artists} onClose={closeDetail} />
         </Sheet>

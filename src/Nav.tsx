@@ -5,7 +5,7 @@ import type { Page } from './hooks';
 export type NavItem = { id: Page; label: string; icon: LucideIcon };
 
 // Ordem em que os itens saem do menu quando falta espaço (os restantes ficam num chevron).
-const HIDE_ORDER: Page[] = ['sobre', 'mapa', 'meus', 'artistas', 'eventos'];
+const HIDE_ORDER: Page[] = ['mapa', 'meus', 'artistas', 'eventos'];
 const CHEVRON = 52;
 
 export default function Nav({ items, page, go }: { items: NavItem[]; page: Page; go: (p: Page) => void }) {
@@ -15,7 +15,8 @@ export default function Nav({ items, page, go }: { items: NavItem[]; page: Page;
   const [open, setOpen] = useState(false);
   // Pill que desliza por trás do item ativo (ou do chevron, se o ativo estiver escondido).
   const buttons = useRef(new Map<string, HTMLButtonElement | null>());
-  const [pill, setPill] = useState<{ x: number; w: number } | null>(null);
+  const [pill, setPill] = useState<{ left: number; right: number; mode: string } | null>(null);
+  const resizing = useRef(false);
 
   // Mede a largura de cada item numa cópia invisível e esconde, pela ordem, até caber.
   useLayoutEffect(() => {
@@ -33,7 +34,9 @@ export default function Nav({ items, page, go }: { items: NavItem[]; page: Page;
         out.push(id);
       }
       setHidden((h) => (h.join() === out.join() ? h : out));
+      resizing.current = true;
       place();
+      resizing.current = false;
     };
     const ro = new ResizeObserver(fit);
     ro.observe(nav);
@@ -44,7 +47,12 @@ export default function Nav({ items, page, go }: { items: NavItem[]; page: Page;
   const place = () => {
     const el = buttons.current.get(hiddenRef.current.includes(pageRef.current) ? 'more' : pageRef.current);
     const nav = ref.current;
-    setPill(el && nav ? { x: el.getBoundingClientRect().left - nav.getBoundingClientRect().left, w: el.offsetWidth } : null);
+    if (!el || !nav) return setPill(null);
+    const left = el.getBoundingClientRect().left - nav.getBoundingClientRect().left;
+    const right = nav.clientWidth - left - el.offsetWidth;
+    // Primeira colocação (ou redimensionar) sem animação; ao mudar de item, a direção decide que aresta lidera.
+    const still = resizing.current;
+    setPill((p) => ({ left, right, mode: !p || still ? 'still' : left < p.left ? 'back' : '' }));
   };
   const hiddenRef = useRef(hidden);
   hiddenRef.current = hidden;
@@ -91,7 +99,7 @@ export default function Nav({ items, page, go }: { items: NavItem[]; page: Page;
           </button>
         ))}
       </div>
-      {pill && <span className="nav-pill" style={{ transform: `translateX(${pill.x}px)`, width: pill.w }} aria-hidden="true" />}
+      {pill && <span className={`nav-pill ${pill.mode}`} style={{ left: pill.left, right: pill.right }} aria-hidden="true" />}
       {items.filter((it) => !hidden.includes(it.id)).map((it) => button(it))}
       {more.length > 0 && (
         <div className="nav-more">

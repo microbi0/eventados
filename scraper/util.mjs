@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 // - respostas ficam em cache em .cache/ e são revalidadas com If-None-Match / If-Modified-Since;
 // - 429/503 respeitam o Retry-After; outros erros 4xx não são repetidos.
 const BOT = 'EventadosBot';
-const UA = `${BOT}/0.1 (+agregador de agenda cultural; links para a fonte original)`;
+export const UA = `${BOT}/0.1 (+agregador de agenda cultural; links para a fonte original)`;
 const MIN_INTERVAL_MS = Number(process.env.SCRAPER_MIN_INTERVAL_MS ?? 2000);
 const DEFAULT_CACHE_HOURS = Number(process.env.SCRAPER_CACHE_HOURS ?? 12);
 const CACHE_DIR = new URL('../.cache/', import.meta.url);

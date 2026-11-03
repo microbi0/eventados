@@ -407,16 +407,44 @@ export function DetailContent({ e, labels, onClose, artists }: { e: EventItem; l
     ...(e.alsoAt ?? []).map((a) => ({ name: a.name, url: a.url })),
   ];
 
+  // Cartazes verticais (A4 ou mais altos) mostram-se inteiros à esquerda, com a informação ao lado.
+  const [poster, setPoster] = useState(false);
+  const checkPoster = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth) setPoster(img.naturalHeight / img.naturalWidth >= 1.25);
+  };
+
+  const actions = (
+    <div className="actions">
+      <a className="btn primary" href={e.url} target="_blank" rel="noreferrer">
+        Ver mais <ArrowUpRight size={18} />
+      </a>
+      <SaveButton e={e} label />
+      {ticketLinks.map((t) => (
+        <a key={t.url} className="btn" href={t.url} target="_blank" rel="noreferrer">
+          <Ticket size={18} /> {t.name}
+        </a>
+      ))}
+      <a className="btn" href={googleCalendarUrl(e)} target="_blank" rel="noreferrer">
+        <CalendarPlus size={18} /> Google Calendar
+      </a>
+      {mapsUrl && (
+        <a className="btn" href={mapsUrl} target="_blank" rel="noreferrer">
+          <Navigation size={18} /> Como chegar
+        </a>
+      )}
+    </div>
+  );
+
   return (
-    <article className="detail-content">
+    <article className={poster ? 'detail-content poster' : 'detail-content'}>
       <button className="icon-btn close" onClick={onClose} aria-label="Fechar">
         <X size={20} />
       </button>
       <div className="media">
-        {e.image ? <img src={e.image} alt="" /> : <Placeholder id={e.categories[0]} />}
+        {e.image ? <img ref={checkPoster} src={e.image} alt="" onLoad={(ev) => checkPoster(ev.currentTarget)} /> : <Placeholder id={e.categories[0]} />}
         {e.isFree && <FreeBadge />}
       </div>
-      <div className="body">
+      <div className="body detail-info">
         <div className="detail-tags">
           {e.categories.map((c) => (
             <Tag key={c} id={c} label={labels[c] ?? c} />
@@ -465,27 +493,12 @@ export function DetailContent({ e, labels, onClose, artists }: { e: EventItem; l
             ))}
           </div>
         )}
+        {poster && actions}
+      </div>
+      <div className="body detail-more">
         {e.description && <p className="desc">{e.description}</p>}
         <p className="source-note">Fonte: {e.sourceName}</p>
-        <div className="actions">
-          <a className="btn primary" href={e.url} target="_blank" rel="noreferrer">
-            Ver mais <ArrowUpRight size={18} />
-          </a>
-          <SaveButton e={e} label />
-          {ticketLinks.map((t) => (
-            <a key={t.url} className="btn" href={t.url} target="_blank" rel="noreferrer">
-              <Ticket size={18} /> {t.name}
-            </a>
-          ))}
-          <a className="btn" href={googleCalendarUrl(e)} target="_blank" rel="noreferrer">
-            <CalendarPlus size={18} /> Google Calendar
-          </a>
-          {mapsUrl && (
-            <a className="btn" href={mapsUrl} target="_blank" rel="noreferrer">
-              <Navigation size={18} /> Como chegar
-            </a>
-          )}
-        </div>
+        {!poster && actions}
       </div>
     </article>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type FocusEvent, type FormEvent, type MouseEvent } from 'react';
-import { AlertCircle, Building2, CheckCircle2, Compass, Landmark, Mail, MapPinned, Send, Sparkles, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Building2, Info, CheckCircle2, Compass, Landmark, Mail, MapPinned, Send, Sparkles, X } from 'lucide-react';
 import type { EventsData } from './types';
 import type { Page } from './hooks';
 import { trackEvent } from './analytics';
@@ -231,6 +231,11 @@ export default function Footer({ data, go }: { data: EventsData; page: Page; go:
               <p className="footer-text muted">
                 Sem bilheteiras comerciais nem destaques pagos: cada evento liga sempre diretamente à fonte oficial.
               </p>
+              <button type="button" className="btn footer-about-btn" onClick={() => go('sobre')}>
+                <Info size={16} />
+                Sobre o Eventados
+                <ArrowRight size={16} />
+              </button>
             </section>
 
             {/* 2. COBERTURA EM PORTUGAL */}
@@ -243,7 +248,7 @@ export default function Footer({ data, go }: { data: EventsData; page: Page; go:
               </p>
 
               <div className="reach-cards">
-                <div className="reach-card">
+                <button type="button" className="reach-card" onClick={() => go('cobertura')} aria-label="Ver todos os municípios e salas">
                   <div className="reach-card-top">
                     <span className="reach-icon">
                       <MapPinned size={18} />
@@ -264,9 +269,9 @@ export default function Footer({ data, go }: { data: EventsData; page: Page; go:
                   >
                     <span style={{ width: `${stats.coveragePct}%` }} />
                   </div>
-                </div>
+                </button>
 
-                <div className="reach-card">
+                <button type="button" className="reach-card" onClick={() => go('cobertura')} aria-label="Ver todas as salas por município">
                   <div className="reach-card-top">
                     <span className="reach-icon">
                       <Landmark size={18} />
@@ -275,7 +280,7 @@ export default function Footer({ data, go }: { data: EventsData; page: Page; go:
                   </div>
                   <strong className="reach-number">{stats.salas.toLocaleString('pt-PT')}</strong>
                   <span className="reach-label">salas e espaços</span>
-                </div>
+                </button>
               </div>
 
               <div className="reach-summary">

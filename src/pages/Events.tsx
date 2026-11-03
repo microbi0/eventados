@@ -3,7 +3,7 @@ import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
 import { ALL, filterEvents } from '../filters';
-import { CategoryChip, CategoryRow, DetailContent, EventCard, EventRow } from '../ui';
+import { CategoryChip, CategoryRow, EventCard } from '../ui';
 import { styleOf } from '../categories';
 import { EventAdCard } from '../ads';
 
@@ -23,12 +23,11 @@ interface Props extends EventsState {
   city: string;
   selected: EventItem | null;
   onSelect: (e: EventItem | null) => void;
-  wide: boolean;
   sidebar: boolean;
 }
 
 // O filtro de gratuitos vive no header (App.tsx) e chega já aplicado aos dados.
-export default function Events({ data, city, selected, onSelect, wide, sidebar, range, setRange, cats, setCats, query, setQuery }: Props) {
+export default function Events({ data, city, selected, onSelect, sidebar, range, setRange, cats, setCats, query, setQuery }: Props) {
   const [limit, setLimit] = useState(PAGE);
   useEffect(() => setLimit(PAGE), [city, cats, range, query]);
 
@@ -52,7 +51,6 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
   const toggleCat = (id: string) => setCats((cur) => (id === ALL ? [] : cur.includes(id) ? cur.filter((c) => c !== id) : [...cur, id]));
   const visibleCats = Object.entries(data.categories).filter(([id]) => counts[id] || cats.includes(id));
   const tagFor = (e: EventItem) => e.categories.find((c) => cats.includes(c)) ?? e.categories[0];
-  const compact = !!selected && wide;
 
   const searchBox = (
     <label className="search">
@@ -75,7 +73,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
   }
 
   return (
-    <div className={compact ? 'layout with-detail' : 'layout'}>
+    <div className="layout">
       {/* ---------- coluna 1: tipos ---------- */}
       {sidebar && (
         <aside className="filters" aria-label="Filtros">
@@ -146,7 +144,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         {!results.length && <div className="state">Nenhum evento com estes filtros.</div>}
 
         {/* key muda com os filtros para reanimar a lista */}
-        <div key={`${city}|${range}|${cats.join()}|${compact}`} className="results">
+        <div key={`${city}|${range}|${cats.join()}`} className="results">
           {(() => {
             let totalRendered = 0;
             // Anúncios no meio da lista: depois do 4.º evento (ou no fim se houver menos de 4) e depois a cada 8.
@@ -160,7 +158,7 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                     {formatDay(g.day)}
                   </h2>
                 )}
-                <div className={compact ? 'rows' : 'grid'}>
+                <div className="grid">
                   {g.items.map(({ e }, i) => {
                     const itemIndex = totalRendered++;
                     const n = itemIndex + 1;
@@ -176,8 +174,8 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
                     };
                     return (
                       <Fragment key={e.id}>
-                        {compact ? <EventRow {...props} /> : <EventCard {...props} />}
-                        {showAd && <EventAdCard compact={compact} index={itemIndex + 1} />}
+                        <EventCard {...props} />
+                        {showAd && <EventAdCard index={itemIndex + 1} />}
                       </Fragment>
                     );
                   })}
@@ -194,12 +192,6 @@ export default function Events({ data, city, selected, onSelect, wide, sidebar, 
         )}
       </main>
 
-      {/* ---------- coluna 3: detalhe (só quando há um evento selecionado) ---------- */}
-      {compact && (
-        <aside className="detail-col" aria-label="Detalhe do evento">
-          <DetailContent key={selected.id} e={selected} labels={data.categories} artists={data.artists} onClose={() => onSelect(null)} />
-        </aside>
-      )}
     </div>
   );
 }

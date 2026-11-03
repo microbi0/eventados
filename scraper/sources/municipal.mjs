@@ -346,3 +346,149 @@ export const leiriagenda = {
     return out;
   },
 };
+
+// Mesma plataforma de Matosinhos/Maia (listagem paginada + "adicionar ao calendário" no detalhe).
+export const peniche = municipalPlatform({ id: 'peniche', name: 'CM Peniche', url: 'https://www.cm-peniche.pt/visitar/agenda-de-eventos', city: 'Peniche', maxPages: 1 });
+export const vfxira = municipalPlatform({ id: 'vfxira', name: 'CM Vila Franca de Xira', url: 'https://agenda.cm-vfxira.pt/calendario', city: 'Vila Franca de Xira' });
+
+// ---------------------------------------------------------------------------
+// Cantanhede — listagem única (ASP.NET) com data, hora, local e categoria em cada cartão
+// ---------------------------------------------------------------------------
+export const cantanhede = {
+  meta: { id: 'cantanhede', name: 'CM Cantanhede', url: 'https://www.cm-cantanhede.pt/mcsite/eventos', city: 'Cantanhede' },
+  async scrape() {
+    const today = lisbonDate();
+    const html = await fetchText(this.meta.url);
+    const out = [];
+    for (const block of html.split(/class="[^"]*event-block-two/).slice(1)) {
+      const href = pick(block, /href="(evento\/(\d+)\/[^"]+)"/);
+      const dateText = decodeEntities(pick(block, /lblDtEvento">([^<]+)/) ?? '').replace(/\s+/g, ' ').trim();
+      const dates = parsePtDateRange(dateText);
+      if (!href || !dates || dates.end < today) continue;
+      // "Freguesia , Local"; "_n/d" quando a freguesia não é indicada.
+      const [parish, place] = decodeEntities(pick(block, /lblLocal">([^<]*)/) ?? '').split(/\s+,\s+/).map((s) => s.trim());
+      const url = absUrl(href, this.meta.url);
+      const img = pick(block, /<img[^>]*src="([^"]+)"/);
+      out.push(
+        makeEvent(this.meta, {
+          id: href.split('/')[1],
+          url,
+          title: pick(block, /hlLinkTo"[^>]*>([\s\S]*?)<\/a>/),
+          rawCategories: [...(pick(block, /class="cat-info">([\s\S]*?)<\/div>/) ?? '').matchAll(/<a[^>]*>([^<]+)<\/a>/g)].map((m) => decodeEntities(m[1]).trim()),
+          venue: place && !/^v[áa]rios$/i.test(place) ? place : null,
+          address: [place, parish && parish !== '_n/d' ? parish : null].filter(Boolean).join(', ') || null,
+          // Fora do concelho, o local traz a localidade no fim ("Auditório da Biblioteca Nacional de Portugal, Lisboa").
+          city: parish === '_n/d' ? place?.match(/,\s*([^,]+)$/)?.[1] : undefined,
+          startDate: dates.start,
+          endDate: dates.end,
+          datesText: dateText,
+          timesText: pick(block, /lblHora">>?([^<]*)/) || null,
+          image: img ? absUrl(img, this.meta.url) : null,
+        }),
+      );
+    }
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Loures — ASP.NET: a listagem (agenda.aspx) só mostra a 1.ª página por GET (as seguintes são postbacks).
+// O detalhe não tem campo de local: tira-se do texto ("na Biblioteca…", "no Pavilhão…").
+// ---------------------------------------------------------------------------
+const PLACE_WORDS = '(?:Biblioteca|(?:Mini-?)?[Aa]udit[óo]rio|Galeria|Museu|Pavilh[ãa]o|Teatro|Cineteatro|Centro|Pal[áa]cio|Quinta|Parque|Igreja|F[áa]brica|Espa[çc]o|Casa|Pra[çc]a|Mercado|Complexo|Jardim|Est[áa]dio|Convento|Mosteiro|Bairro|Largo)\\b';
+const PLACE_RE = new RegExp(`\\b(?:n[oa]s?|em)\\s+(${PLACE_WORDS}[^,.;:()–«»"]{2,70})`);
+
+export const loures = {
+  meta: { id: 'loures', name: 'CM Loures', url: 'https://www.cm-loures.pt/Ligacao.aspx?DisplayId=472', city: 'Loures' },
+  async scrape() {
+    const today = lisbonDate();
+    const base = 'https://www.cm-loures.pt/';
+    const list = await fetchText(`${base}agenda.aspx?displayid=&areaid=1`);
+    const items = [];
+    for (const li of list.split(/<li>/).slice(1)) {
+      const id = pick(li, /Conteudo\.aspx\?DisplayId=(\d+)/);
+      const dateText = decodeEntities(pick(li, /class="periodoAgenda">([^<]+)/) ?? '').trim();
+      const dates = parsePtDateRange(dateText);
+      if (!id || !dates || dates.end < today) continue;
+      items.push({ id, dateText, dates, title: pick(li, /<h2>([\s\S]*?)<\/h2>/), img: pick(li, /esp_foto[\s\S]*?<img[^>]*src="([^"]+)"/) });
+    }
+    const events = await mapLimit(items, 1, async (it) => {
+      // Detalhe (conteúdo do iframe de Conteudo.aspx): muda pouco, reutilizado durante 7 dias.
+      const html = await fetchText(`${base}agenda.aspx?displayid=${it.id}`, { cacheHours: 24 * 7 }).catch(() => '');
+      const lead = pick(html, /id="lblLeadArtigo">([\s\S]*?)<\/p>/);
+      const body = pick(html, /id="divNoticia"[^>]*>([\s\S]*?)<\/div>/);
+      const place = stripHtml(`${lead ?? ''}\n${body ?? ''}`).match(PLACE_RE)?.[1]?.trim().replace(/\s+(?:de|da|do|em|e)$/, '');
+      return makeEvent(this.meta, {
+        id: it.id,
+        url: `${base}Conteudo.aspx?DisplayId=${it.id}`,
+        title: it.title,
+        description: lead ?? body,
+        venue: place ?? null,
+        startDate: it.dates.start,
+        endDate: it.dates.end,
+        datesText: it.dateText,
+        image: it.img ? absUrl(it.img, base) : null,
+      });
+    });
+    return events.filter(Boolean);
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Variante da mesma plataforma sem os campos "adicionar ao calendário" (Esposende, Miranda do Douro):
+// título, datas ("02 a 30 Nov", "05 Dez 2026 a 10 Jan 2027") e imagem vêm da listagem; hora, local e preço
+// do texto do detalhe ("22h00", "<strong>Auditório…</strong>", "Entrada: €5,00").
+// ---------------------------------------------------------------------------
+function textPlatform(meta) {
+  return {
+    meta,
+    async scrape() {
+      const today = lisbonDate();
+      const cards = new Map();
+      for (let page = 1, param = null; page === 1 || (param && page <= (meta.maxPages ?? 12)); page++) {
+        const html = await fetchText(page === 1 ? meta.url : `${meta.url}?${param}=${page}`);
+        param ??= html.match(/[?&](events_list_\d+_page)=\d+/)?.[1];
+        let upcoming = 0;
+        for (const li of html.split('class="event_item_container"').slice(1)) {
+          const href = pick(li, /href="([^"]*\/evento\/[^"#?]+)"/);
+          const dates = parsePtDateRange(text(pick(li, /class="dates widget_field[^"]*">([\s\S]*?)<\/div><\/div>/)));
+          if (!href || !dates || dates.end < today || cards.has(href)) continue;
+          cards.set(href, { href, dates, title: pick(li, /<h2>([\s\S]*?)<\/h2>/), img: pick(li, /<img[^>]*src="([^"]+)"/) });
+          upcoming++;
+        }
+        // Listagens mais recentes primeiro: uma página sem eventos futuros novos encerra a pesquisa.
+        if (!upcoming) break;
+      }
+      const events = await mapLimit([...cards.values()], 1, async (c) => {
+        const url = absUrl(c.href, meta.url);
+        const html = await fetchText(url, { cacheHours: 24 * 7 }).catch(() => '');
+        const body = pick(html, /class="text widget_field[^"]*"><div class="widget_value"><div class="writer_text">([\s\S]*?)<div class="writer_text_clear">/) ?? '';
+        const paras = [...body.matchAll(/<p>([\s\S]*?)<\/p>/g)].map((m) => m[1]);
+        // Local: parágrafo só em negrito no início do texto, sem horas nem datas e que não seja um rótulo ("Entrada:").
+        // Ou um parágrafo que comece pelo nome de um local ("IGREJA DO BOM JESUS DE FÃO"); por fim, "no Miniauditório…".
+        const head = paras.slice(0, 3).map((p) => stripHtml(p).trim());
+        const strong = paras.slice(0, 3).map((p) => p.match(/^\s*<strong>([^<:\d]+)<\/strong>\s*$/)?.[1]).find(Boolean);
+        const named = head.find((p) => !/\d/.test(p) && p.length < 90 && new RegExp(`^${PLACE_WORDS}`, 'i').test(p));
+        const venue = (strong ? decodeEntities(strong).trim() : null) ?? named ?? head.join('\n').match(PLACE_RE)?.[1]?.trim();
+        const img = pick(html, /<meta property="og:image" content="([^"]+)"/) ?? c.img;
+        return makeEvent(meta, {
+          id: c.href.split('/').pop(),
+          url,
+          // O título da listagem pode vir cortado ("…") ou noutro elemento: o do detalhe é o completo.
+          title: pick(html, /<h1 class="pageTitle">([^<]+)/) ?? pick(html, /<meta property="og:title" content="([^"]+)"/) ?? c.title,
+          description: body,
+          venue: venue?.replace(/[\s|–-]+$/, '') || null,
+          startDate: c.dates.start,
+          endDate: c.dates.end,
+          timesText: stripHtml(paras.slice(0, 3).join('\n')).match(/\b\d{1,2}h\d{0,2}\b/)?.[0] ?? null,
+          price: stripHtml(paras.find((p) => /Entrada|Pre[çc]o|&ccedil;o/i.test(p)) ?? '').replace(/^[^:]*:\s*/, '') || null,
+          image: img ? absUrl(img, url) : null,
+        });
+      });
+      return events.filter(Boolean);
+    },
+  };
+}
+
+export const esposende = textPlatform({ id: 'esposende', name: 'CM Esposende', url: 'https://www.municipio.esposende.pt/viver/atualidade/eventos', city: 'Esposende' });
+export const mirandaDouro = textPlatform({ id: 'mirandadouro', name: 'CM Miranda do Douro', url: 'https://www.cm-mdouro.pt/municipio/comunicacao/agenda-de-eventos', city: 'Miranda do Douro' });

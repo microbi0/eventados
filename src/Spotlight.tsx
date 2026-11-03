@@ -69,28 +69,54 @@ export function useTone(e: EventItem | null) {
   return tone;
 }
 
-// Slider dos eventos mais relevantes da semana: avança sozinho, pausa com o rato/foco, arrasta-se com o rato ou o dedo.
+// Slider dos eventos mais relevantes da semana: avança sozinho e pausa com o rato/foco/dedo.
+// O deslizar é o scroll nativo com snap (inércia do próprio telemóvel); com o rato, arrasta-se à mão.
 export default function Spotlight({ spots, title, onOpen, onActive }: { spots: Spot[]; title: string; onOpen: (e: EventItem) => void; onActive?: (e: EventItem) => void }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
-  // Arrastar (rato ou dedo): o slider segue o ponteiro e, ao largar, muda de slide ou volta ao sítio.
-  const drag = useRef<{ x: number; t: number; w: number; moved: boolean } | null>(null);
-  const [dx, setDx] = useState<number | null>(null);
+  const [touching, setTouching] = useState(false);
+  const track = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; t: number; left: number; moved: boolean } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const n = spots.length;
 
-  const go = useCallback((i: number) => setIndex(((i % n) + n) % n), [n]);
+  // Enquanto o scroll anda (programático ou com o dedo), o slide ativo não muda: só quando assenta.
+  // Assim os slides do meio do caminho não piscam nem disparam as suas animações.
+  const settle = useRef<number | undefined>(undefined);
+  const go = useCallback(
+    (i: number, smooth = true) => {
+      const el = track.current;
+      if (!el || !n) return;
+      const next = ((i % n) + n) % n;
+      el.scrollTo({ left: next * el.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
+      setIndex(next);
+    },
+    [n],
+  );
+  useEffect(() => () => window.clearTimeout(settle.current), []);
 
-  useEffect(() => setIndex(0), [spots]);
+  useEffect(() => go(0, false), [spots, go]);
 
   useEffect(() => {
     if (spots[index]) onActive?.(spots[index].e);
   }, [index, spots, onActive]);
 
   useEffect(() => {
-    if (paused || dx != null || n < 2) return;
+    if (paused || touching || dragging || n < 2) return;
     const t = window.setTimeout(() => go(index + 1), INTERVAL);
     return () => window.clearTimeout(t);
-  }, [index, paused, dx, n, go]);
+  }, [index, paused, touching, dragging, n, go]);
+
+  // O slide ativo segue o scroll (dedo, trackpad ou scrollTo).
+  const onScroll = () => {
+    window.clearTimeout(settle.current);
+    settle.current = window.setTimeout(() => {
+      const el = track.current;
+      if (!el || drag.current?.moved) return;
+      const i = Math.round(el.scrollLeft / el.clientWidth);
+      if (i >= 0 && i < n) setIndex(i);
+    }, 140);
+  };
 
   if (!n) return null;
 
@@ -108,48 +134,54 @@ export default function Spotlight({ spots, title, onOpen, onActive }: { spots: S
         if (ev.key === 'ArrowLeft') go(index - 1);
       }}
     >
-      <div
-        className={`spot-viewport${dx != null ? ' dragging' : ''}`}
-        onPointerDown={(ev) => {
-          if (ev.button !== 0 || n < 2) return;
-          drag.current = { x: ev.clientX, t: ev.timeStamp, w: ev.currentTarget.offsetWidth, moved: false };
-        }}
-        onPointerMove={(ev) => {
-          const d = drag.current;
-          if (!d) return;
-          let move = ev.clientX - d.x;
-          if (!d.moved) {
-            if (Math.abs(move) < 6) return;
-            d.moved = true;
-            ev.currentTarget.setPointerCapture(ev.pointerId);
-          }
-          // resistência nas pontas
-          if ((index === 0 && move > 0) || (index === n - 1 && move < 0)) move /= 3;
-          setDx(move);
-        }}
-        onPointerUp={(ev) => {
-          const d = drag.current;
-          if (!d?.moved) return void (drag.current = null);
-          const move = ev.clientX - d.x;
-          const speed = move / Math.max(1, ev.timeStamp - d.t);
-          const next = Math.abs(move) > d.w * 0.15 || Math.abs(speed) > 0.5 ? index + (move < 0 ? 1 : -1) : index;
-          setDx(null);
-          if (next >= 0 && next < n) go(next);
-          // o clique que vem a seguir ao largar não deve abrir o evento
-          window.setTimeout(() => (drag.current = null));
-        }}
-        onPointerCancel={() => {
-          drag.current = null;
-          setDx(null);
-        }}
-        onClickCapture={(ev) => {
-          if (drag.current?.moved) {
-            ev.preventDefault();
-            ev.stopPropagation();
-          }
-        }}
-      >
-        <div className="spot-track" style={{ transform: `translateX(calc(${-index * 100}% + ${dx ?? 0}px))` }}>
+      <div className="spot-viewport">
+        <div
+          ref={track}
+          className={`spot-track${dragging ? ' dragging' : ''}`}
+          onScroll={onScroll}
+          onTouchStart={() => setTouching(true)}
+          onTouchEnd={() => setTouching(false)}
+          onTouchCancel={() => setTouching(false)}
+          onPointerDown={(ev) => {
+            if (ev.pointerType !== 'mouse' || ev.button !== 0 || n < 2) return;
+            drag.current = { x: ev.clientX, t: ev.timeStamp, left: track.current!.scrollLeft, moved: false };
+          }}
+          onPointerMove={(ev) => {
+            const d = drag.current;
+            if (!d) return;
+            const move = ev.clientX - d.x;
+            if (!d.moved) {
+              if (Math.abs(move) < 6) return;
+              d.moved = true;
+              setDragging(true);
+              ev.currentTarget.setPointerCapture(ev.pointerId);
+            }
+            track.current!.scrollLeft = d.left - move;
+          }}
+          onPointerUp={(ev) => {
+            const d = drag.current;
+            if (!d?.moved) return void (drag.current = null);
+            const move = ev.clientX - d.x;
+            const speed = move / Math.max(1, ev.timeStamp - d.t);
+            const w = track.current!.clientWidth;
+            const from = Math.round(d.left / w);
+            const next = Math.abs(move) > w * 0.15 || Math.abs(speed) > 0.5 ? from + (move < 0 ? 1 : -1) : from;
+            setDragging(false);
+            go(Math.max(0, Math.min(n - 1, next)));
+            // o clique que vem a seguir ao largar não deve abrir o evento
+            window.setTimeout(() => (drag.current = null));
+          }}
+          onPointerCancel={() => {
+            drag.current = null;
+            setDragging(false);
+          }}
+          onClickCapture={(ev) => {
+            if (drag.current?.moved) {
+              ev.preventDefault();
+              ev.stopPropagation();
+            }
+          }}
+        >
           {spots.map(({ e }, i) => (
             <Slide key={e.id} e={e} active={i === index} label={`${i + 1} de ${n}`} onOpen={() => onOpen(e)} />
           ))}
@@ -159,7 +191,7 @@ export default function Spotlight({ spots, title, onOpen, onActive }: { spots: S
           {spots.map(({ e }, i) => (
             <button key={e.id} role="tab" aria-selected={i === index} aria-label={`Destaque ${i + 1}`} className={i === index ? 'on' : ''} onClick={() => go(i)}>
               {/* barra de progresso do avanço automático */}
-              {i === index && !paused && n > 1 && <i key={index} style={{ animationDuration: `${INTERVAL}ms` }} />}
+              {i === index && !paused && !touching && n > 1 && <i key={index} style={{ animationDuration: `${INTERVAL}ms` }} />}
             </button>
           ))}
         </div>

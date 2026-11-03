@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarDays, MapPin, Mic2, Search } from 'lucide-react';
+import { ArrowLeft, Search } from 'lucide-react';
 import type { Artist, EventItem, EventsData } from '../types';
-import { formatSpan, iso } from '../dates';
+import { iso } from '../dates';
 import { normalize } from '../filters';
 import { ARTIST_TYPES, ArtistPhoto, EventCard, openArtist, stagger } from '../ui';
 
@@ -87,17 +87,19 @@ export default function Artists({ data, onSelect }: { data: EventsData; onSelect
       <section className="artists-head">
         <h1>Artistas</h1>
         <p className="lead">Artistas portugueses com datas marcadas: cantores, bandas e humoristas. Escolhe um para veres onde vai estar.</p>
-        <label className="search big">
-          <Search size={20} />
-          <input type="search" placeholder="Procurar artista…" value={q} onChange={(e) => setQ(e.target.value)} />
-        </label>
-        <div className="chips">
-          {(['all', 'cantor', 'banda', 'humor'] as Kind[]).map((k) => (
-            <button key={k} className={kind === k ? 'chip on' : 'chip'} onClick={() => setKind(k)}>
-              {k === 'all' ? 'Todos' : ARTIST_TYPES[k]}
-              <span className="count">{k === 'all' ? all.length : (counts[k] ?? 0)}</span>
-            </button>
-          ))}
+        <div className="artists-bar">
+          <div className="chips">
+            {(['all', 'cantor', 'banda', 'humor'] as Kind[]).map((k) => (
+              <button key={k} className={kind === k ? 'chip on' : 'chip'} onClick={() => setKind(k)}>
+                {k === 'all' ? 'Todos' : ARTIST_TYPES[k]}
+                <span className="count">{k === 'all' ? all.length : (counts[k] ?? 0)}</span>
+              </button>
+            ))}
+          </div>
+          <label className="search">
+            <Search size={18} />
+            <input type="search" placeholder="Procurar artista…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Procurar artista" />
+          </label>
         </div>
       </section>
 
@@ -110,13 +112,7 @@ export default function Artists({ data, onSelect }: { data: EventsData; onSelect
                 <ArtistPhoto a={a} />
                 <strong>{a.name}</strong>
                 <small>
-                  <Mic2 size={13} /> {next.length} {next.length === 1 ? 'data' : 'datas'}
-                </small>
-                <small>
-                  <CalendarDays size={13} /> {formatSpan(next[0])}
-                </small>
-                <small>
-                  <MapPin size={13} /> {next[0].city}
+                  {next.length} {next.length === 1 ? 'evento' : 'eventos'}
                 </small>
               </button>
             );

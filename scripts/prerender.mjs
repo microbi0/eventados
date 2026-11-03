@@ -234,8 +234,8 @@ for (const [city, all] of cities) {
   const cats = Object.keys(CAT_SEO).filter((c) => list.filter((e) => e.categories.includes(c)).length >= 3);
   const catNav = `<nav><h2>Por tipo de evento</h2><ul>${cats.map((c) => `<li><a href="${catPath(city, c)}">${esc(CAT_SEO[c].title)} ${esc(inPlace(city))}</a></li>`).join('')}</ul></nav>`;
   await page(cityPath(city), {
-    title: `Eventos ${inPlace(city)} hoje, este fim de semana e próximos dias | Eventados`,
-    description: `${list.length} eventos ${inPlace(city)}: concertos, teatro, stand-up, exposições, cinema e atividades para famílias. Agenda atualizada todos os dias, com datas, horários e locais.`,
+    title: `Eventos ${inPlace(city)}`,
+    description: `${list.length} eventos ${inPlace(city)}: concertos, teatro, stand-up, exposições, cinema e atividades para famílias.`,
     initial: { page: 'eventos', city },
     ld: [itemList(list), crumbs([['Eventados', '/'], ['Eventos', '/eventos/'], [`Eventos ${inPlace(city)}`, cityPath(city)]])],
     body: `<nav><a href="/">Eventados</a> › <a href="/eventos/">Eventos</a></nav><h1>Eventos ${esc(inPlace(city))}</h1>

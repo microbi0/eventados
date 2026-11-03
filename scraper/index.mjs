@@ -6,12 +6,13 @@ import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
 import { stats } from './util.mjs';
+import { pickBestImages } from './images.mjs';
 import { normalizePrice, normalizeTime } from './event.mjs';
 import { municipioAt, municipioBBox, municipioByName, municipioInText } from './geo.mjs';
 import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde, fnac } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
-import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda } from './sources/municipal.mjs';
+import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda, esposende, peniche, vfxira, cantanhede, loures, mirandaDouro } from './sources/municipal.mjs';
 import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita, ccco, teatroMicaelense, forumBraga, teatroLousa, mausHabitos, casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 import { uguru, sonsEmTransito } from './sources/agencies.mjs';
@@ -30,6 +31,7 @@ const SOURCES = [
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
   tagv, quartelDasArtes, palmela, espacoVita, tabua, ccco,
   teatroMicaelense, forumBraga, teatroLousa, mausHabitos, visitSeia, leiriagenda,
+  esposende, peniche, vfxira, cantanhede, loures, mirandaDouro,
   casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub,
   // Lojas e centros comerciais
   fnac,
@@ -44,6 +46,7 @@ const SOURCE_KIND = {
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
   fnac: 'venue', tagv: 'venue', quarteldasartes: 'venue', palmela: 'agenda', espacovita: 'venue', tabua: 'agenda', ccco: 'venue',
   teatromicaelense: 'venue', forumbraga: 'venue', teatrolousa: 'venue', maushabitos: 'venue', visitseia: 'agenda', leiriagenda: 'agenda',
+  esposende: 'agenda', peniche: 'agenda', vfxira: 'agenda', cantanhede: 'agenda', loures: 'agenda', mirandadouro: 'agenda',
   casadamusica: 'venue', lav: 'venue', teatrotrindade: 'venue', mariamatos: 'venue', hardclub: 'venue',
   bol: 'ticketing', ticketline: 'ticketing',
   uguru: 'agency', sonsemtransito: 'agency',
@@ -187,6 +190,17 @@ function sameShow(a, b) {
   const shared = [...A].filter((w) => B.has(w)).length;
   return shared >= 2 && shared / Math.min(A.size, B.size) >= 0.8;
 }
+// Mesmo local no mesmo dia também é o mesmo evento ("Duran Duran" / "DURAN DURAN - Free To Love Tour | Lisboa",
+// ambos no MEO Arena), desde que venham de fontes diferentes e o nome principal (antes de " - ", "|" ou ":")
+// de um caiba no do outro. Assim não se juntam sessões diferentes do mesmo festival ou atividades da mesma sala.
+const GENERIC = new Set(['concerto', 'concertos', 'festival', 'tour', 'live', 'espetaculo', 'com', 'ao', 'vivo']);
+const venueKey = (v) => slugify(v ?? '').replace(/[^a-z0-9]+/g, ' ').trim();
+const mainWords = (e) => [...titleWords(e.title.split(/\s[-–—]\s|\s*[|:]\s*/)[0])].filter((w) => !GENERIC.has(w) && w !== slugify(e.city ?? ''));
+function sameVenue(a, b) {
+  if (a.source === b.source || !a.venue || !b.venue || venueKey(a.venue) !== venueKey(b.venue)) return false;
+  const [A, B] = [mainWords(a), mainWords(b)].sort((x, y) => x.length - y.length);
+  return A.length > 0 && A.every((w) => B.includes(w));
+}
 const byDayCity = new Map();
 // Um festival de vários dias e um concerto de um dia desse festival não são o mesmo evento
 // (só se juntam durações compatíveis: 2 noites vs 1, sim; uma semana vs 1 dia, não).
@@ -212,7 +226,7 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
   // Datas de agência só entram com concelho português reconhecido.
   if (SOURCE_KIND[e.source] === 'agency' && !e.district) continue;
   const days = dayKeys(e);
-  const prev = byKey.get(key(e)) ?? days.map((dc) => byDayCity.get(dc)?.find((p) => sameShow(p.title, e.title) && sameSpan(p, e))).find(Boolean);
+  const prev = byKey.get(key(e)) ?? days.map((dc) => byDayCity.get(dc)?.find((p) => (sameShow(p.title, e.title) || sameVenue(p, e)) && sameSpan(p, e))).find(Boolean);
   if (!prev) {
     byKey.set(key(e), e);
     for (const dc of days) {
@@ -238,6 +252,8 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
   }
   prev.alsoAt ??= [];
   prev.alsoAt.push({ name: e.sourceName, source: e.source, url: e.tickets ?? e.url });
+  // Imagens de todas as fontes; no fim fica a de maior resolução (ver images.mjs).
+  if (e.image) (prev.imageCandidates ??= prev.image ? [prev.image] : []).push(e.image);
   prev.image ??= e.image;
   prev.price ??= e.price;
   prev.lat ??= e.lat;
@@ -248,6 +264,9 @@ for (const e of collapseSessions(results.flatMap((r) => r.list).filter((e) => !i
 }
 
 const events = [...byKey.values()].sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title, 'pt'));
+
+const picked = await pickBestImages(events);
+console.log(`  imagens: ${picked.compared} eventos com várias fontes, ${picked.probed} medidas, ${picked.changed} trocadas por melhores`);
 
 // Preço em formato único para todas as fontes ("25€", "15€ – 25€", "Gratuito"), mesmo as que não usam makeEvent.
 for (const e of events) {

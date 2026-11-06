@@ -111,7 +111,8 @@ export function tribeSource(meta) {
           description: ev.excerpt || ev.description,
           rawCategories: (ev.categories ?? []).map((c) => c.name),
           // Nome da sala interna ("Sala Principal") passa a "Teatro Sá da Bandeira – Sala Principal".
-          venue: v?.venue && !v.venue.toLowerCase().includes(meta.venue.toLowerCase()) ? `${meta.venue} – ${v.venue}` : meta.venue,
+          // Agendas com vários locais (sem meta.venue) usam o local de cada evento.
+          venue: !meta.venue ? v?.venue ?? null : v?.venue && !v.venue.toLowerCase().includes(meta.venue.toLowerCase()) ? `${meta.venue} – ${v.venue}` : meta.venue,
           address: v ? [v.address, v.city].filter(Boolean).join(', ') : meta.address,
           lat: v?.geo_lat ?? meta.lat,
           lon: v?.geo_lng ?? meta.lon,
@@ -140,3 +141,37 @@ export const ccb = tribeSource({
   id: 'ccb', name: 'Centro Cultural de Belém', url: 'https://www.ccb.pt/eventos/', city: 'Lisboa',
   venue: 'Centro Cultural de Belém', address: 'Praça do Império, Lisboa', lat: 38.6955, lon: -9.2085,
 });
+
+// Nelas — agenda do Visit Nelas (The Events Calendar), com vários locais pelo concelho.
+export const nelas = tribeSource({ id: 'nelas', name: 'Visit Nelas', url: 'https://www.visitnelascoracaododao.pt/em-agenda/', city: 'Nelas' });
+
+// Gouveia — tipo de conteúdo "agenda" com campos próprios (data_de_inicio, hora_de_inicio, local_do_evento, …).
+export const gouveia = {
+  meta: { id: 'gouveia', name: 'CM Gouveia', url: 'https://www.cm-gouveia.pt/agenda/', city: 'Gouveia' },
+  async scrape() {
+    const today = lisbonDate();
+    const endOf = (it) => it.data_de_fim || it.data_de_inicio || '';
+    const items = await crawl((p) => `https://www.cm-gouveia.pt/wp-json/wp/v2/agenda?per_page=50&page=${p}&_embed=wp:featuredmedia`, (it) => endOf(it) >= today);
+    return items
+      .filter((it) => it.data_de_inicio && endOf(it) >= today)
+      .map((it) => {
+        const time = splitDateTime(`${it.data_de_inicio}T${it.hora_de_inicio || '00:00'}`).time;
+        return makeEvent(this.meta, {
+          id: it.id,
+          url: it.link,
+          // "/// Cinema: Natal Amargo | 18 de outubro | 21h30 | 3,70€ | M/14" → "Cinema: Natal Amargo"
+          title: it.title.rendered.replace(/^\/+\s*/, '').split(' | ')[0],
+          description: it.excerpt?.rendered,
+          rawCategories: [it.tipo_de_evento].filter(Boolean),
+          venue: it.local_do_evento || null,
+          address: it.morada || null,
+          startDate: it.data_de_inicio,
+          endDate: endOf(it),
+          timesText: time,
+          price: it.preco || null,
+          image: it._embedded?.['wp:featuredmedia']?.[0]?.source_url ?? ogImage(it),
+        });
+      });
+  },
+};
+export const arganil = tribeSource({ id: 'arganil', name: 'CM Arganil', url: 'https://www.cm-arganil.pt/agenda-cultural-do-concelho/', city: 'Arganil' });

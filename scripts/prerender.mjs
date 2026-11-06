@@ -192,13 +192,20 @@ for (const e of upcoming) {
     // Sem cartaz: a fotografia do artista ou, em último caso, a imagem genérica do Eventados.
     image: [e.image || performers.find((a) => a.photo)?.photo || `${SITE}/og.jpg`],
     organizer: { '@type': 'Organization', name: e.sourceName, url: e.url },
-    // Oferta sempre com o link de bilhetes/informação; o preço só quando a fonte o indica.
-    offers: {
-      '@type': 'Offer',
-      url: e.tickets || e.url,
-      availability: /esgotad/i.test(`${e.title} ${e.subtitle ?? ''}`) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
-      ...(e.isFree || prices.length ? { price: e.isFree ? 0 : Math.min(...prices), priceCurrency: 'EUR' } : {}),
-    },
+    // Oferta só quando a fonte indica o preço (ou é gratuito): o Google pede price, priceCurrency e validFrom
+    // e não vale a pena inventar um preço. validFrom = data da recolha (os bilhetes já estavam disponíveis).
+    ...(e.isFree || prices.length
+      ? {
+          offers: {
+            '@type': 'Offer',
+            url: e.tickets || e.url,
+            price: e.isFree ? 0 : Math.min(...prices),
+            priceCurrency: 'EUR',
+            validFrom: `${today}T00:00:00${lisbonOffset(today)}`,
+            availability: /esgotad/i.test(`${e.title} ${e.subtitle ?? ''}`) ? 'https://schema.org/SoldOut' : 'https://schema.org/InStock',
+          },
+        }
+      : {}),
     // Artistas identificados no evento (ver scraper/artists.mjs); sem artista conhecido, o campo fica de fora.
     ...(performers.length
       ? {

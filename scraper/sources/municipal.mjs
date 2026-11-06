@@ -492,3 +492,58 @@ function textPlatform(meta) {
 
 export const esposende = textPlatform({ id: 'esposende', name: 'CM Esposende', url: 'https://www.municipio.esposende.pt/viver/atualidade/eventos', city: 'Esposende' });
 export const mirandaDouro = textPlatform({ id: 'mirandadouro', name: 'CM Miranda do Douro', url: 'https://www.cm-mdouro.pt/municipio/comunicacao/agenda-de-eventos', city: 'Miranda do Douro' });
+
+// ---------------------------------------------------------------------------
+// Sites Next.js da Visualforma (Miranda do Corvo, Mangualde): a lista de eventos vem no payload RSC
+// da própria página (self.__next_f), num objeto "eventsList".
+// ---------------------------------------------------------------------------
+function nextAgenda(meta) {
+  return {
+    meta,
+    async scrape() {
+      const today = lisbonDate();
+      const html = await fetchText(meta.url);
+      const rsc = [...html.matchAll(/self\.__next_f\.push\(\[1,"((?:[^"\\]|\\.)*)"\]\)/g)].map((m) => JSON.parse(`"${m[1]}"`)).join('');
+      // Recorta o objeto "eventsList" contando chavetas (o payload RSC não é JSON no seu todo).
+      const start = rsc.indexOf('{', rsc.indexOf('"eventsList":'));
+      if (start < 0) return [];
+      let depth = 0;
+      let end = start;
+      for (let inStr = false; end < rsc.length; end++) {
+        const ch = rsc[end];
+        if (inStr) {
+          if (ch === '\\') end++;
+          else if (ch === '"') inStr = false;
+        } else if (ch === '"') inStr = true;
+        else if (ch === '{') depth++;
+        else if (ch === '}' && --depth === 0) break;
+      }
+      const { items = [] } = JSON.parse(rsc.slice(start, end + 1));
+      return items
+        .map((it) => {
+          const s = it.startDate?.slice(0, 10);
+          const e = it.endDate?.slice(0, 10) || s;
+          // A imagem vem ora como lista de tamanhos, ora como um só objeto; o link, como texto ou { url }.
+          const img = [].concat(it.image ?? []).sort((a, b) => b.width - a.width)[0]?.link;
+          const link = typeof it.link === 'string' ? it.link : it.link?.url;
+          return makeEvent(meta, {
+            id: it.id,
+            url: absUrl(link ?? '', meta.url),
+            title: it.title,
+            // "Casa das Artes - Espetáculos" → "Espetáculos"; "Município" e "Outros" não dizem nada.
+            rawCategories: [...(it.categories ?? []), ...(it.category ?? [])].map((c) => c.title.replace(/^.* - /, '')).filter((c) => !/^(munic[íi]pio|outros|eventos)$/i.test(c)),
+            venue: it.location && it.location !== meta.city ? it.location : null,
+            startDate: s,
+            endDate: e,
+            image: img ? absUrl(img, meta.url) : null,
+          });
+        })
+        .filter((e) => e.startDate && e.endDate >= today);
+    },
+  };
+}
+
+export const mirandaCorvo = nextAgenda({ id: 'mirandacorvo', name: 'CM Miranda do Corvo', url: 'https://cm-mirandadocorvo.pt/agenda', city: 'Miranda do Corvo' });
+export const mangualde = nextAgenda({ id: 'mangualde', name: 'CM Mangualde', url: 'https://www.cmmangualde.pt/agenda', city: 'Mangualde' });
+// Góis: listagem por data decrescente, os eventos futuros estão todos na 1.ª página.
+export const gois = municipalPlatform({ id: 'gois', name: 'CM Góis', url: 'https://www.cm-gois.pt/viver/cultura/agenda-proximos-eventos/todos-os-eventos', city: 'Góis', maxPages: 1 });

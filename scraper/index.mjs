@@ -11,9 +11,9 @@ import { normalizePrice, normalizeTime } from './event.mjs';
 import { municipioAt, municipioBBox, municipioByName, municipioInText } from './geo.mjs';
 import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde, fnac } from './sources/bundlr.mjs';
-import { gondomar, povoa, superBockArena, saDaBandeira, ccb } from './sources/wordpress.mjs';
-import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda, esposende, peniche, vfxira, cantanhede, loures, mirandaDouro } from './sources/municipal.mjs';
-import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita, ccco, teatroMicaelense, forumBraga, teatroLousa, mausHabitos, casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub } from './sources/venues.mjs';
+import { gondomar, povoa, superBockArena, saDaBandeira, ccb, nelas, gouveia, arganil } from './sources/wordpress.mjs';
+import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda, esposende, peniche, vfxira, cantanhede, loures, mirandaDouro, mirandaCorvo, mangualde, gois } from './sources/municipal.mjs';
+import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita, ccco, teatroMicaelense, forumBraga, teatroLousa, mausHabitos, casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub, casaDasArtesFamalicao } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 import { uguru, sonsEmTransito } from './sources/agencies.mjs';
 import { bol } from './sources/bol.mjs';
@@ -31,8 +31,8 @@ const SOURCES = [
   jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP,
   tagv, quartelDasArtes, palmela, espacoVita, tabua, ccco,
   teatroMicaelense, forumBraga, teatroLousa, mausHabitos, visitSeia, leiriagenda,
-  esposende, peniche, vfxira, cantanhede, loures, mirandaDouro,
-  casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub,
+  esposende, peniche, vfxira, cantanhede, loures, mirandaDouro, nelas, gouveia, mirandaCorvo, arganil, mangualde, gois,
+  casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub, casaDasArtesFamalicao,
   // Lojas e centros comerciais
   fnac,
   // Bilheteiras nacionais (completam salas, teatros e concelhos em todo o país)
@@ -46,8 +46,8 @@ const SOURCE_KIND = {
   jazzaocentro: 'venue', conventosaofrancisco: 'venue', theatrocirco: 'venue', gnration: 'venue', teatrojlsilva: 'venue', teatroviriato: 'venue', cmevora: 'agenda', teatrobraganca: 'venue', auditorioccop: 'venue',
   fnac: 'venue', tagv: 'venue', quarteldasartes: 'venue', palmela: 'agenda', espacovita: 'venue', tabua: 'agenda', ccco: 'venue',
   teatromicaelense: 'venue', forumbraga: 'venue', teatrolousa: 'venue', maushabitos: 'venue', visitseia: 'agenda', leiriagenda: 'agenda',
-  esposende: 'agenda', peniche: 'agenda', vfxira: 'agenda', cantanhede: 'agenda', loures: 'agenda', mirandadouro: 'agenda',
-  casadamusica: 'venue', lav: 'venue', teatrotrindade: 'venue', mariamatos: 'venue', hardclub: 'venue',
+  esposende: 'agenda', peniche: 'agenda', vfxira: 'agenda', cantanhede: 'agenda', loures: 'agenda', mirandadouro: 'agenda', nelas: 'agenda', gouveia: 'agenda', mirandacorvo: 'agenda', arganil: 'agenda', mangualde: 'agenda', gois: 'agenda',
+  casadamusica: 'venue', lav: 'venue', teatrotrindade: 'venue', mariamatos: 'venue', hardclub: 'venue', casadasartesfamalicao: 'venue',
   bol: 'ticketing', ticketline: 'ticketing',
   uguru: 'agency', sonsemtransito: 'agency',
   turismocentro: 'regional', visitalentejo: 'regional', visitalgarve: 'regional', visitlisboa: 'regional', eventsmadeira: 'regional',

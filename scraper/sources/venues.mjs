@@ -1854,3 +1854,57 @@ export const hardClub = {
     return out;
   },
 };
+
+// ---------------------------------------------------------------------------
+// Casa das Artes de Famalicão — calendário mensal carregado por AJAX (/?it=event_calendar_list2&y=&m=).
+// Os eventos não têm página própria (abrem por AJAX na página inicial): o link é o da página inicial.
+// ---------------------------------------------------------------------------
+export const casaDasArtesFamalicao = {
+  meta: { id: 'casadasartesfamalicao', name: 'Casa das Artes de Famalicão', url: 'https://www.casadasartes.org/', city: 'Vila Nova de Famalicão', venue: 'Casa das Artes de Famalicão' },
+  async scrape() {
+    const today = lisbonDate();
+    const seen = new Map();
+    const [y0, m0] = today.split('-').map(Number);
+    for (let i = 0; i < 3; i++) {
+      const y = y0 + Math.floor((m0 - 1 + i) / 12);
+      const m = ((m0 - 1 + i) % 12) + 1;
+      // 6 eventos por página (pini = deslocamento).
+      for (let pini = 0; pini < 60; pini += 6) {
+      const html = await fetchText(`${this.meta.url}?it=event_calendar_list2&y=${y}&m=${m}&ctd=${pini ? `&pini=${pini}` : ''}`).catch(() => '');
+      const cards = html.split('class="fundoeventos"').slice(1);
+      if (!cards.length) break;
+      for (const card of cards) {
+        const co = card.match(/co=(\d+)&/)?.[1];
+        const dateText = decodeEntities(card.match(/class="dataev">([^<]+)/)?.[1] ?? '').replace(/\s+/g, ' ').trim();
+        const dates = parsePtDateRange(dateText.replace(/\bat[ée]\b/, 'a'));
+        if (!co || !dates || dates.end < today || seen.has(co)) continue;
+        // "5 de novembro, quinta-feira, 21:45<br/>Pequeno Auditório"
+        const parts = (card.match(/<h5><span>([\s\S]*?)<\/span><\/h5>/)?.[1] ?? '').split(/<br\s*\/?>/).map((s) => stripHtml(s).trim()).filter(Boolean);
+          // A ordem varia ("data, hora<br/>sala" ou "sala<br/>data, hora"): a parte com horas é a data.
+          const when = parts.find((p) => /\d{1,2}:\d{2}/.test(p));
+          const room = parts.find((p) => p !== when);
+        const img = card.match(/<img src="(op\/image\/[^"]+)"/)?.[1];
+        seen.set(
+          co,
+          makeEvent(this.meta, {
+            id: co,
+            url: this.meta.url,
+            title: card.match(/class="tituloev">([\s\S]*?)<\/h1>/)?.[1],
+            subtitle: card.match(/<h4>([\s\S]*?)<\/h4>/)?.[1] || null,
+            rawCategories: [stripHtml(card.match(/<\/h5>([\s\S]*?)<\/div>/)?.[1] ?? '')].filter(Boolean),
+            venue: room ? `${this.meta.venue} – ${room}` : this.meta.venue,
+            address: 'Parque de Sinçães, Vila Nova de Famalicão',
+            startDate: dates.start,
+            endDate: dates.end,
+            datesText: when || dateText,
+            timesText: when?.match(/\b\d{1,2}:\d{2}\b/)?.[0]?.replace(':', 'h') ?? null,
+            image: img ? absUrl(img, this.meta.url) : null,
+          }),
+        );
+      }
+      if (cards.length < 6) break;
+      }
+    }
+    return [...seen.values()];
+  },
+};

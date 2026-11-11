@@ -69,53 +69,80 @@ export function useTone(e: EventItem | null) {
   return tone;
 }
 
-// Slider dos eventos mais relevantes da semana: avança sozinho e pausa com o rato/foco/dedo.
-// O deslizar é o scroll nativo com snap (inércia do próprio telemóvel); com o rato, arrasta-se à mão.
+// Slider dos eventos mais relevantes da semana: avança sozinho e pausa com o rato, o teclado ou o dedo.
+// O deslizar é feito à mão (dedo ou rato): o slider segue o dedo 1:1 e, ao largar, se passou de 40% da largura
+// (ou foi um gesto rápido) continua para esse lado; senão volta ao sítio. A animação é sempre um ease-in-out.
+// Os gestos verticais ficam para o scroll da página (touch-action: pan-y).
+const EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';
+const THRESHOLD = 0.4;
+
+type Drag = { id: number; x: number; y: number; dx: number; axis: 'x' | 'y' | null; lastX: number; lastT: number; vx: number };
+
 export default function Spotlight({ spots, title, onOpen, onActive }: { spots: Spot[]; title: string; onOpen: (e: EventItem) => void; onActive?: (e: EventItem) => void }) {
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [touching, setTouching] = useState(false);
-  const track = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ x: number; t: number; left: number; moved: boolean } | null>(null);
-  const [dragging, setDragging] = useState(false);
   const n = spots.length;
+  const win = useRef<HTMLDivElement>(null);
+  const track = useRef<HTMLDivElement>(null);
+  // index: o slide indicado nos pontos (segue o gesto em tempo real). settled: onde o slider pousou (fundo da Home e autoplay).
+  const [index, setIndex] = useState(0);
+  const [settled, setSettled] = useState(0);
+  const pos = useRef(0);
+  const [hover, setHover] = useState(false);
+  const [keyFocus, setKeyFocus] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef<Drag | null>(null);
+  const moved = useRef(false); // o clique depois de arrastar não abre o evento
 
-  // Enquanto o scroll anda (programático ou com o dedo), o slide ativo não muda: só quando assenta.
-  // Assim os slides do meio do caminho não piscam nem disparam as suas animações.
-  const settle = useRef<number | undefined>(undefined);
+  // Põe o track no slide `pos` deslocado `offset` px; com `ms` anima com o ease-in-out.
+  const place = useCallback((offset: number, ms = 0) => {
+    const el = track.current;
+    if (!el) return;
+    el.style.transition = ms ? `transform ${ms}ms ${EASE}` : 'none';
+    el.style.transform = `translate3d(calc(${-pos.current * 100}% + ${offset}px), 0, 0)`;
+  }, []);
+
   const go = useCallback(
-    (i: number, smooth = true) => {
-      const el = track.current;
-      if (!el || !n) return;
+    (i: number, ms = 560) => {
+      if (!n) return;
       const next = ((i % n) + n) % n;
-      el.scrollTo({ left: next * el.clientWidth, behavior: smooth ? 'smooth' : 'auto' });
+      const jump = Math.abs(next - pos.current);
+      pos.current = next;
       setIndex(next);
+      // atravessar vários slides (ex.: do último para o primeiro) demora um pouco mais
+      place(0, ms && Math.round(ms * Math.min(1.6, 1 + 0.15 * Math.max(0, jump - 1))));
+      if (!ms) setSettled(next);
     },
-    [n],
+    [n, place],
   );
-  useEffect(() => () => window.clearTimeout(settle.current), []);
 
-  useEffect(() => go(0, false), [spots, go]);
-
-  useEffect(() => {
-    if (spots[index]) onActive?.(spots[index].e);
-  }, [index, spots, onActive]);
+  useEffect(() => go(0, 0), [spots, go]);
 
   useEffect(() => {
-    if (paused || touching || dragging || n < 2) return;
-    const t = window.setTimeout(() => go(index + 1), INTERVAL);
+    if (spots[settled]) onActive?.(spots[settled].e);
+  }, [settled, spots, onActive]);
+
+  const playing = n > 1 && !hover && !keyFocus && !dragging;
+  useEffect(() => {
+    if (!playing) return;
+    const t = window.setTimeout(() => go(pos.current + 1), INTERVAL);
     return () => window.clearTimeout(t);
-  }, [index, paused, touching, dragging, n, go]);
+  }, [settled, playing, go]);
 
-  // O slide ativo segue o scroll (dedo, trackpad ou scrollTo).
-  const onScroll = () => {
-    window.clearTimeout(settle.current);
-    settle.current = window.setTimeout(() => {
-      const el = track.current;
-      if (!el || drag.current?.moved) return;
-      const i = Math.round(el.scrollLeft / el.clientWidth);
-      if (i >= 0 && i < n) setIndex(i);
-    }, 140);
+  // deslocamento atual do track em relação ao slide `pos` (para apanhar uma animação a meio)
+  const currentOffset = () => {
+    const el = track.current!;
+    const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+    return m.m41 + pos.current * el.clientWidth;
+  };
+
+  const release = (d: Drag) => {
+    const w = track.current!.clientWidth || 1;
+    const frac = d.dx / w;
+    const flick = Math.abs(d.vx) > 0.6 && Math.abs(frac) > 0.1 && Math.sign(d.vx) === Math.sign(d.dx);
+    const step = Math.abs(frac) >= THRESHOLD || flick ? (d.dx < 0 ? 1 : -1) : 0;
+    const next = Math.max(0, Math.min(n - 1, pos.current + step));
+    // a duração acompanha o caminho que falta percorrer
+    const left = Math.abs((pos.current - next) * w + d.dx) / w;
+    go(next, Math.round(260 + 340 * Math.min(1, left)));
   };
 
   if (!n) return null;
@@ -125,73 +152,110 @@ export default function Spotlight({ spots, title, onOpen, onActive }: { spots: S
       className="spotlight"
       aria-roledescription="carrossel"
       aria-label={title}
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
-      onFocus={() => setPaused(true)}
-      onBlur={() => setPaused(false)}
+      onPointerEnter={(ev) => ev.pointerType === 'mouse' && setHover(true)}
+      onPointerLeave={(ev) => ev.pointerType === 'mouse' && setHover(false)}
+      onFocus={(ev) => {
+        // só o foco do teclado pausa; um toque num botão não deixa o slider parado para sempre
+        if ((ev.target as HTMLElement).matches?.(':focus-visible')) setKeyFocus(true);
+      }}
+      onBlur={(ev) => {
+        if (!ev.currentTarget.contains(ev.relatedTarget as Node | null)) setKeyFocus(false);
+      }}
       onKeyDown={(ev) => {
-        if (ev.key === 'ArrowRight') go(index + 1);
-        if (ev.key === 'ArrowLeft') go(index - 1);
+        if (ev.key === 'ArrowRight') go(pos.current + 1);
+        if (ev.key === 'ArrowLeft') go(pos.current - 1);
       }}
     >
       <div className="spot-viewport">
         <div
-          ref={track}
-          className={`spot-track${dragging ? ' dragging' : ''}`}
-          onScroll={onScroll}
-          onTouchStart={() => setTouching(true)}
-          onTouchEnd={() => setTouching(false)}
-          onTouchCancel={() => setTouching(false)}
+          ref={win}
+          className={`spot-window${dragging ? ' dragging' : ''}`}
           onPointerDown={(ev) => {
-            if (ev.pointerType !== 'mouse' || ev.button !== 0 || n < 2) return;
-            drag.current = { x: ev.clientX, t: ev.timeStamp, left: track.current!.scrollLeft, moved: false };
+            if (n < 2 || (ev.pointerType === 'mouse' && ev.button !== 0) || drag.current) return;
+            moved.current = false;
+            const offset = currentOffset();
+            place(offset); // se estava a animar, fica onde está e o dedo pega-lhe daí
+            drag.current = { id: ev.pointerId, x: ev.clientX - offset, y: ev.clientY, dx: offset, axis: null, lastX: ev.clientX, lastT: ev.timeStamp, vx: 0 };
           }}
           onPointerMove={(ev) => {
             const d = drag.current;
-            if (!d) return;
-            const move = ev.clientX - d.x;
-            if (!d.moved) {
-              if (Math.abs(move) < 6) return;
-              d.moved = true;
+            if (!d || ev.pointerId !== d.id) return;
+            let dx = ev.clientX - d.x;
+            if (!d.axis) {
+              const dy = ev.clientY - d.y;
+              if (Math.abs(dx - d.dx) < 6 && Math.abs(dy) < 6) return;
+              d.axis = Math.abs(dx - d.dx) >= Math.abs(dy) ? 'x' : 'y';
+              if (d.axis === 'y') {
+                // é scroll vertical da página: o slider volta ao sítio e não interfere
+                drag.current = null;
+                if (Math.abs(d.dx) > 1) go(pos.current, 300);
+                return;
+              }
+              moved.current = true;
               setDragging(true);
-              ev.currentTarget.setPointerCapture(ev.pointerId);
+              try {
+                win.current!.setPointerCapture(ev.pointerId);
+              } catch {
+                /* ponteiro já terminado */
+              }
             }
-            track.current!.scrollLeft = d.left - move;
+            // resistência nas pontas (antes do primeiro e depois do último)
+            if ((pos.current === 0 && dx > 0) || (pos.current === n - 1 && dx < 0)) dx *= 0.35;
+            const dt = ev.timeStamp - d.lastT;
+            if (dt > 0) d.vx = 0.7 * ((ev.clientX - d.lastX) / dt) + 0.3 * d.vx;
+            d.lastX = ev.clientX;
+            d.lastT = ev.timeStamp;
+            d.dx = dx;
+            place(dx);
+            // os pontos mostram já o slide para onde vai ao largar
+            const w = track.current!.clientWidth || 1;
+            const ahead = Math.abs(dx / w) >= THRESHOLD ? (dx < 0 ? 1 : -1) : 0;
+            const live = Math.max(0, Math.min(n - 1, pos.current + ahead));
+            setIndex((i) => (i === live ? i : live));
           }}
           onPointerUp={(ev) => {
             const d = drag.current;
-            if (!d?.moved) return void (drag.current = null);
-            const move = ev.clientX - d.x;
-            const speed = move / Math.max(1, ev.timeStamp - d.t);
-            const w = track.current!.clientWidth;
-            const from = Math.round(d.left / w);
-            const next = Math.abs(move) > w * 0.15 || Math.abs(speed) > 0.5 ? from + (move < 0 ? 1 : -1) : from;
-            setDragging(false);
-            go(Math.max(0, Math.min(n - 1, next)));
-            // o clique que vem a seguir ao largar não deve abrir o evento
-            window.setTimeout(() => (drag.current = null));
-          }}
-          onPointerCancel={() => {
+            if (!d || ev.pointerId !== d.id) return;
             drag.current = null;
             setDragging(false);
+            // velocidade antiga (dedo parado antes de largar) não conta como gesto rápido
+            if (ev.timeStamp - d.lastT > 80) d.vx = 0;
+            if (d.axis === 'x' || Math.abs(d.dx) > 1) release(d);
+          }}
+          onPointerCancel={(ev) => {
+            const d = drag.current;
+            if (!d || ev.pointerId !== d.id) return;
+            drag.current = null;
+            setDragging(false);
+            go(pos.current, 300);
           }}
           onClickCapture={(ev) => {
-            if (drag.current?.moved) {
+            if (moved.current) {
               ev.preventDefault();
               ev.stopPropagation();
+              moved.current = false;
             }
           }}
+          onDragStart={(ev) => ev.preventDefault()}
         >
-          {spots.map(({ e }, i) => (
-            <Slide key={e.id} e={e} active={i === index} label={`${i + 1} de ${n}`} onOpen={() => onOpen(e)} />
-          ))}
+          <div
+            ref={track}
+            className="spot-track"
+            onTransitionEnd={(ev) => {
+              if (ev.target === ev.currentTarget && ev.propertyName === 'transform' && !drag.current) setSettled(pos.current);
+            }}
+          >
+            {spots.map(({ e }, i) => (
+              <Slide key={e.id} e={e} active={i === index} label={`${i + 1} de ${n}`} onOpen={() => onOpen(e)} />
+            ))}
+          </div>
         </div>
 
         <div className="spot-dots" role="tablist" aria-label="Escolher destaque">
           {spots.map(({ e }, i) => (
             <button key={e.id} role="tab" aria-selected={i === index} aria-label={`Destaque ${i + 1}`} className={i === index ? 'on' : ''} onClick={() => go(i)}>
               {/* barra de progresso do avanço automático */}
-              {i === index && !paused && !touching && n > 1 && <i key={index} style={{ animationDuration: `${INTERVAL}ms` }} />}
+              {i === index && i === settled && playing && <i key={settled} style={{ animationDuration: `${INTERVAL}ms` }} />}
             </button>
           ))}
         </div>

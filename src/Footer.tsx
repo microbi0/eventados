@@ -226,7 +226,7 @@ export default function Footer({ data, go }: { data: EventsData; page: Page; go:
 
               <p className="footer-text">
                 O <strong>Eventados</strong> reúne todos os dias a agenda cultural de Portugal a partir das agendas municipais, salas de espetáculos,
-                entidades de turismo e promotoras — organizada por concelho, categoria e data.
+                entidades de turismo e promotoras, organizada por concelho, categoria e data.
               </p>
               <p className="footer-text muted">
                 Sem bilheteiras comerciais nem destaques pagos: cada evento liga sempre diretamente à fonte oficial.

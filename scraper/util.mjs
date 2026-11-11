@@ -295,3 +295,18 @@ export const absUrl = (href, base) => {
     return null;
   }
 };
+
+// O travessão (—) não aparece em lado nenhum do site: separa com hífen no meio do texto e cai no início das linhas.
+export function noEmDash(v) {
+  if (typeof v === 'string')
+    return v.includes('\u2014')
+      ? v
+          .replace(/(^|\n)[ \t]*\u2014[ \t]*/g, '$1')
+          .replace(/[ \t]*\u2014[ \t]*($|\n)/g, '$1')
+          .replace(/\s*\u2014\s*/g, ' - ')
+          .trim()
+      : v;
+  if (Array.isArray(v)) return v.map(noEmDash);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, noEmDash(x)]));
+  return v;
+}

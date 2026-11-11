@@ -136,7 +136,7 @@ export default function App() {
     <>
       <header className="top">
         <div className="bar">
-          <a className="brand" href="#/" onClick={() => go('home')} aria-label="Eventados — início">
+          <a className="brand" href="#/" onClick={() => go('home')} aria-label="Eventados, início">
             Eventados
           </a>
           {sidebar && <Nav items={TOP_NAV} page={page} go={go} />}

@@ -62,13 +62,13 @@ export const formatDay = (s: string) => {
   return `${WEEKDAYS[d.getDay()]}, ${short(d)}`;
 };
 
-// "28 Out" ou "28 Out — 21 Nov" (com ano quando não é o corrente)
+// "28 Out" ou "28 Out a 21 Nov" (com ano quando não é o corrente)
 export function formatSpan(e: EventItem): string {
   const year = new Date().getFullYear();
   const withYear = (d: Date) => (d.getFullYear() !== year ? `${short(d)} ${d.getFullYear()}` : short(d));
   const isRun = e.startDate !== e.endDate && !(e.dates && e.dates.length === 1);
   if (!isRun) return withYear(parse(e.dates?.[0] ?? e.startDate));
-  return `${short(parse(e.startDate))} — ${withYear(parse(e.endDate))}`;
+  return `${short(parse(e.startDate))} a ${withYear(parse(e.endDate))}`;
 }
 
 // Minutos desde a meia-noite a partir de textos como "21h30", "21:30" ou "18h"; sem hora vai para o fim.

@@ -23,12 +23,12 @@ export default function About({ data }: { data: EventsData }) {
         </h1>
         <p className="lead">
           O <strong>Eventados</strong> junta os eventos publicados pelas agendas municipais e pelas salas de espetáculos de Portugal e organiza-os por
-          sítio, por tipo e por dia. Em vez de visitar dezenas de sites, encontras aqui o que está a acontecer perto de ti — e cada evento leva-te
+          sítio, por tipo e por dia. Em vez de visitar dezenas de sites, encontras aqui o que está a acontecer perto de ti, e cada evento leva-te
           sempre à página original.
         </p>
         <p className="lead">
           <strong>A curadoria é feita de forma automática.</strong> Ninguém escolhe à mão o que aparece: um programa recolhe as agendas, junta
-          os eventos repetidos em várias fontes, arruma-os por tipo e por concelho e decide os destaques com regras fixas — a dimensão da sala, se é
+          os eventos repetidos em várias fontes, arruma-os por tipo e por concelho e decide os destaques com regras fixas: a dimensão da sala, se é
           um espetáculo ao vivo, um festival ou uma digressão, ou se o evento aparece em várias agendas. Nenhum evento é pago para aparecer em destaque.
         </p>
         <div className="stats">

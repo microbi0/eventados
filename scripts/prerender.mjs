@@ -129,7 +129,7 @@ const crumbs = (items) => ({
 });
 
 const eventLi = (e, showCity) =>
-  `<li><a href="${eventPath(e)}">${esc(e.title)}</a> — ${esc(e.startDate === e.endDate ? longDate(e.startDate) : `${longDate(e.startDate)} a ${longDate(e.endDate)}`)}${e.timesText ? `, ${esc(e.timesText)}` : ''}${e.venue ? ` · ${esc(e.venue)}` : ''}${showCity ? ` · ${esc(e.city)}` : ''}</li>`;
+  `<li><a href="${eventPath(e)}">${esc(e.title)}</a>, ${esc(e.startDate === e.endDate ? longDate(e.startDate) : `${longDate(e.startDate)} a ${longDate(e.endDate)}`)}${e.timesText ? `, ${esc(e.timesText)}` : ''}${e.venue ? ` · ${esc(e.venue)}` : ''}${showCity ? ` · ${esc(e.city)}` : ''}</li>`;
 
 function listByDay(events, showCity) {
   const out = [];
@@ -224,7 +224,7 @@ for (const e of upcoming) {
     e.price || e.isFree ? `<li><strong>Preço:</strong> ${esc(e.price ?? 'Entrada gratuita')}</li>` : '',
   ].join('');
   await page(eventPath(e), {
-    title: `${e.title} — ${where} | Eventados`,
+    title: `${e.title}, ${where} | Eventados`,
     description: `${e.title}: ${span(e)}${e.timesText ? `, ${e.timesText}` : ''}${e.venue ? `, ${e.venue}` : ''} ${inPlace(e.city)}. ${e.subtitle ?? e.description ?? ''}`,
     image: e.image || performers.find((a) => a.photo)?.photo || `${SITE}/og.jpg`,
     initial: { page: 'eventos', city: e.city, eventId: e.id },

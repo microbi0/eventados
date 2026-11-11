@@ -5,7 +5,7 @@
 import { writeFile, mkdir, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { CATEGORIES, PRIVATE_CATEGORIES, slugify } from './categories.mjs';
-import { stats } from './util.mjs';
+import { noEmDash, stats } from './util.mjs';
 import { pickBestImages } from './images.mjs';
 import { normalizePrice, normalizeTime } from './event.mjs';
 import { municipioAt, municipioBBox, municipioByName, municipioInText } from './geo.mjs';
@@ -315,7 +315,7 @@ const agencySources = new Set(Object.keys(SOURCE_KIND).filter((id) => SOURCE_KIN
 const artists = await linkArtists(events, { agencySources, titleKey });
 console.log(`→ ${Object.keys(artists).length} artistas com datas`);
 
-await writeFile(OUT, JSON.stringify({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, places, artists, events }));
+await writeFile(OUT, JSON.stringify(noEmDash({ updatedAt: new Date().toISOString(), categories: CATEGORIES, sources, places, artists, events })));
 const cities = new Set(events.map((e) => e.city));
 console.log(`→ ${events.length} eventos em ${cities.size} concelhos escritos em ${OUT}`);
 console.log(`  pedidos HTTP: ${stats.requests} · respostas em cache: ${stats.cacheHits} · não modificadas (304): ${stats.notModified} · bloqueados por robots.txt: ${stats.blockedByRobots}`);

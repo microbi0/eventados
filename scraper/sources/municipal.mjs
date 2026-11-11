@@ -547,3 +547,55 @@ export const mirandaCorvo = nextAgenda({ id: 'mirandacorvo', name: 'CM Miranda d
 export const mangualde = nextAgenda({ id: 'mangualde', name: 'CM Mangualde', url: 'https://www.cmmangualde.pt/agenda', city: 'Mangualde' });
 // Góis: listagem por data decrescente, os eventos futuros estão todos na 1.ª página.
 export const gois = municipalPlatform({ id: 'gois', name: 'CM Góis', url: 'https://www.cm-gois.pt/viver/cultura/agenda-proximos-eventos/todos-os-eventos', city: 'Góis', maxPages: 1 });
+
+// ---------------------------------------------------------------------------
+// Espinho — listagem com os próximos eventos (sem paginação) + página de detalhe
+// ("Data", "Hora", "Local:", "Preço:" e <time datetime>).
+// ---------------------------------------------------------------------------
+export const espinho = {
+  meta: { id: 'espinho', name: 'CM Espinho', url: 'https://portal.cm-espinho.pt/pt/eventos/', city: 'Espinho' },
+  async scrape() {
+    const meta = this.meta;
+    const today = lisbonDate();
+    const html = await fetchText(meta.url);
+    // Categoria de cada evento vem da etiqueta do cartão da listagem.
+    const cats = new Map();
+    for (const m of html.matchAll(/href="(\/pt\/eventos\/[^"]+\/)"[^>]*class="col-events-tags[^"]*">\s*<span[^>]*>([^<]+)</g)) cats.set(m[1], decodeEntities(m[2]).trim());
+    const hrefs = [...new Set([...html.matchAll(/href="(\/pt\/eventos\/[^"/]+\/)"/g)].map((m) => m[1]))];
+    const info = (page, label) => pick(page, new RegExp(`infomation[^"]*">${label}:?</span>\\s*<span[^>]*>([\\s\\S]*?)</span>`));
+    const events = await mapLimit(hrefs, 3, async (href) => {
+      try {
+        const url = absUrl(href, meta.url);
+        const page = await fetchText(url, { cacheHours: 24 });
+        const datetime = pick(page, /<time[^>]*datetime="(\d{4}-\d{2}-\d{2})/);
+        const year = Number(datetime?.slice(0, 4) ?? pick(page, /date-event-detail[^>]*>[^<]*(\d{4})</));
+        const datesText = decodeEntities(info(page, 'Data') ?? '').trim();
+        const ref = datetime ? new Date(`${datetime}T12:00:00Z`) : year ? new Date(Date.UTC(year, 0, 1)) : undefined;
+        const range = parsePtDateRange(datesText, ref);
+        const startDate = datetime ?? range?.start;
+        if (!startDate) return null;
+        const endDate = range?.end && range.end >= startDate ? range.end : startDate;
+        const hora = text(info(page, 'Hora'));
+        const img = pick(page, /class="detail-image-img-event"[^>]*src="([^"]+)"/) ?? pick(page, /<meta property="og:image" content="([^"]+)"/);
+        return makeEvent(meta, {
+          id: href.split('/').filter(Boolean).pop(),
+          url,
+          title: pick(page, /<h1 class="main-title-content">([\s\S]*?)<\/h1>/),
+          description: pick(page, /<div class="full-text-detail">([\s\S]*?)<\/div>\s*(?:<ul|<\/div>)/),
+          rawCategories: [cats.get(href)].filter(Boolean),
+          venue: text(info(page, 'Local')) || null,
+          startDate,
+          endDate,
+          datesText: datesText || null,
+          timesText: hora && hora !== '00:00' ? hora.replace(':', 'h') : null,
+          price: text(info(page, 'Preço')?.replace(/<br\s*\/?>/g, ' · ')) || null,
+          tickets: pick(page, /<a href="([^"]+)" class="event-detail-link/),
+          image: img ? absUrl(img, url) : null,
+        });
+      } catch {
+        return null;
+      }
+    });
+    return events.filter((e) => e && e.endDate >= today);
+  },
+};

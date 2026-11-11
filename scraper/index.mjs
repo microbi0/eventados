@@ -12,7 +12,7 @@ import { municipioAt, municipioBBox, municipioByName, municipioInText } from './
 import * as agendalx from './sources/agendalx.mjs';
 import { agendaPorto, viladoconde, fnac } from './sources/bundlr.mjs';
 import { gondomar, povoa, superBockArena, saDaBandeira, ccb, nelas, gouveia, arganil } from './sources/wordpress.mjs';
-import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda, esposende, peniche, vfxira, cantanhede, loures, mirandaDouro, mirandaCorvo, mangualde, gois } from './sources/municipal.mjs';
+import { matosinhos, maia, famalicao, odivelas, viana, aveiro, gaia, quartelDasArtes, palmela, tabua, visitSeia, leiriagenda, esposende, peniche, vfxira, cantanhede, loures, mirandaDouro, mirandaCorvo, mangualde, gois, espinho } from './sources/municipal.mjs';
 import { meoArena, rivoli, tnsj, coliseuPorto, campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor, jazzAoCentro, conventoSaoFrancisco, theatroCirco, gnration, teatroJLSilva, teatroViriato, cmEvora, teatroBraganca, auditorioCCOP, tagv, espacoVita, ccco, teatroMicaelense, forumBraga, teatroLousa, mausHabitos, casaDaMusica, lav, teatroTrindade, mariaMatos, hardClub, casaDasArtesFamalicao } from './sources/venues.mjs';
 import { turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira } from './sources/regional.mjs';
 import { uguru, sonsEmTransito } from './sources/agencies.mjs';
@@ -24,7 +24,7 @@ import { linkArtists } from './artists.mjs';
 // Bilheteiras (BOL, Eventbrite, Ticketline…) ficam de fora de propósito: só agendas públicas e salas.
 // Para adicionar uma plataforma: criar um módulo com { meta, scrape() } e juntá-lo aqui.
 const SOURCES = [
-  agendalx, agendaPorto, viladoconde, matosinhos, gaia, gondomar, maia, povoa, famalicao, odivelas, viana, aveiro,
+  agendalx, agendaPorto, viladoconde, matosinhos, gaia, espinho, gondomar, maia, povoa, famalicao, odivelas, viana, aveiro,
   turismoCentro, visitAlentejo, visitAlgarve, visitLisboa, eventsMadeira,
   superBockArena, saDaBandeira, coliseuPorto, rivoli, tnsj, ccb, meoArena,
   campoPequeno, coliseuLisboa, gulbenkian, tivoli, ccl, fil, exponor,

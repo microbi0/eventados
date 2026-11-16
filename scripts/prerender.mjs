@@ -282,7 +282,18 @@ const homeHtml = template.replace(
 await writeFile(new URL('index.html', DIST), homeHtml);
 written.unshift('/');
 
-// 6) sitemap e robots
+// 6) página 404 estática com o mesmo layout para evitar erros 5xx/Varnish no GitHub Pages
+const notFoundHtml = template
+  .replace(/<!--seo:start-->[\s\S]*?<!--seo:end-->/, [
+    `<title>Página não encontrada | Eventados</title>`,
+    `<meta name="robots" content="noindex, follow" />`,
+    `<link rel="canonical" href="${SITE}/" />`,
+  ].join('\n    '))
+  .replace('<!--ssr-->', `<main class="ssr"><h1>Página não encontrada</h1><p>O evento ou página que procuras já não está disponível ou mudou de endereço.</p><p><a href="/">Voltar à página inicial</a> · <a href="/eventos/">Ver eventos por concelho</a></p></main>`)
+  .replace('<!--initial-->', '');
+await writeFile(new URL('404.html', DIST), notFoundHtml);
+
+// 7) sitemap e robots
 const lastmod = data.updatedAt.slice(0, 10);
 await writeFile(
   new URL('sitemap.xml', DIST),

@@ -531,12 +531,12 @@ h1, h2, h3 {
 .detail-content .detail-more { padding-top: 0; }
 .detail-content .detail-more:not(:has(> .desc)) { padding-top: 4px; }
 
-/* Cartaz vertical: o cartaz inteiro à esquerda (fica fixo ao fazer scroll), a informação à direita
+/* Cartaz vertical: o cartaz inteiro à esquerda (sobe com o resto ao fazer scroll), a informação à direita
    e o texto por baixo, a toda a largura. */
 @media (min-width: 720px) {
   .sheet:has(.detail-content.poster) { max-width: 1000px; }
   .detail-content.poster { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; }
-  .detail-content.poster .media { grid-column: 1; grid-row: 1; position: sticky; top: 16px; margin: 16px; background: none; }
+  .detail-content.poster .media { grid-column: 1; grid-row: 1; margin: 16px; background: none; }
   .detail-content.poster .media img { width: 100%; height: auto; max-height: calc(92vh - 32px); object-fit: contain; border-radius: 20px; }
   .detail-content.poster .detail-info { grid-column: 2; grid-row: 1; padding: 30px 28px 16px 8px; }
   .detail-content.poster .detail-tags { padding-right: 52px; }

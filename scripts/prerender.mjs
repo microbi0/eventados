@@ -94,10 +94,15 @@ const cityPath = (c) => `/eventos/${slug(c)}/`;
 const catPath = (c, cat) => `${cityPath(c)}${CAT_SEO[cat].slug}/`;
 
 // ---------------------------------------------------------------- escrita das páginas
+// Ligações fixas no fundo de todas as páginas estáticas (o AdSense e o Google procuram Sobre, Contacto e Privacidade).
+const ssrFooter = `<footer><p><a href="/sobre/">Sobre o Eventados</a> · <a href="/contacto/">Contacto</a> · <a href="/privacidade.html">Privacidade</a> · <a href="/eventos/">Eventos por concelho</a></p></footer>`;
+
 const written = [];
-async function page(path, { title, description, canonical = SITE + path, initial, body, ld = [], image }) {
+const hidden = []; // páginas com noindex: existem para quem lá chega, mas ficam fora do sitemap
+async function page(path, { title, description, canonical = SITE + path, initial, body, ld = [], image, noindex = false }) {
   const head = [
     `<title>${esc(title)}</title>`,
+    noindex ? `<meta name="robots" content="noindex, follow" />` : '',
     `<meta name="description" content="${esc(clip(description, 158))}" />`,
     `<link rel="canonical" href="${esc(canonical)}" />`,
     `<meta property="og:type" content="website" />`,
@@ -114,12 +119,62 @@ async function page(path, { title, description, canonical = SITE + path, initial
     .join('\n    ');
   const html = template
     .replace(/<!--seo:start-->[\s\S]*?<!--seo:end-->/, head)
-    .replace('<!--ssr-->', `<main class="ssr">${body}</main>`)
+    .replace('<!--ssr-->', `<main class="ssr">${body}${ssrFooter}</main>`)
     .replace('<!--initial-->', initial ? `<script>window.__INITIAL__=${JSON.stringify(initial).replace(/</g, '\\u003c')}</script>` : '');
   const dir = new URL(`.${path}`, DIST);
   await mkdir(dir, { recursive: true });
   await writeFile(new URL('index.html', dir), html);
-  written.push(path);
+  (noindex ? hidden : written).push(path);
+}
+
+// ---------------------------------------------------------------- texto próprio a partir dos dados
+// Uma página só com título, data e local é "conteúdo fino": fica com noindex e fora do sitemap.
+const hasText = (e) => (e.description ?? '').trim().length >= 150 || (e.subtitle ?? '').trim().length >= 80;
+const MIN_LIST = 5; // cidades e tipos com menos eventos do que isto também ficam com noindex
+
+const plural = (n, one, many) => `${n.toLocaleString('pt-PT')} ${n === 1 ? one : many}`;
+const joinPt = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs.at(-1)}`);
+const topCounts = (items, n) => {
+  const m = new Map();
+  for (const k of items) if (k) m.set(k, (m.get(k) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, n);
+};
+const WEEKDAY_FULL = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+const ART = ['o', 'a', 'a', 'a', 'a', 'a', 'o'];
+const minPrice = (e) => {
+  const p = (e.price ?? '').match(/\d+(?:[.,]\d+)?/g)?.map((n) => Number(n.replace(',', '.')));
+  return p?.length ? Math.min(...p) : null;
+};
+
+// Resumo de uma lista de eventos: tipos, salas, gratuitos, preços, dia mais forte e fontes.
+function summary(list, place, { withCats = true } = {}) {
+  const out = [];
+  if (withCats) {
+    const cats = topCounts(list.flatMap((e) => e.categories.filter((c) => CAT_SEO[c])), 3);
+    if (cats.length)
+      out.push(`A maior parte é de ${joinPt(cats.map(([c, n]) => `${CAT_SEO[c].title.toLowerCase()} (${n})`))}.`);
+  }
+  const venues = topCounts(list.map((e) => e.venue), 4);
+  if (venues.length > 1) out.push(`Os espaços com mais programação ${place} são ${joinPt(venues.map(([v, n]) => `${esc(v)} (${n})`))}.`);
+  else if (venues.length === 1) out.push(`A maior parte acontece em ${esc(venues[0][0])}.`);
+  const free = list.filter((e) => e.isFree).length;
+  const prices = list.map(minPrice).filter((p) => p != null && p > 0).sort((a, b) => a - b);
+  if (free) out.push(`${plural(free, 'evento tem', 'eventos têm')} entrada gratuita.`);
+  if (prices.length >= 3) out.push(`Nos eventos pagos com preço indicado, os bilhetes começam nos ${prices[0]} € e o preço mais comum anda pelos ${prices[prices.length >> 1]} €.`);
+  const days = topCounts(list.map((e) => parse(e.startDate < today ? today : e.startDate).getUTCDay()), 1);
+  if (days.length && list.length >= 8) out.push(`O dia da semana com mais oferta é ${ART[days[0][0]]} ${WEEKDAY_FULL[days[0][0]]}.`);
+  const srcs = topCounts(list.map((e) => e.sourceName), 3).map(([s]) => esc(s));
+  if (srcs.length) out.push(`A informação vem de ${joinPt(srcs)}${srcs.length < new Set(list.map((e) => e.sourceName)).size ? ' e de outras fontes' : ''}, e cada evento leva à página oficial.`);
+  return out.join(' ');
+}
+
+// Eventos por sala, para sugerir "mais eventos no mesmo sítio" em cada página de evento.
+const byVenue = new Map();
+for (const e of upcoming) {
+  if (!e.venue) continue;
+  const k = `${e.city}|${e.venue}`;
+  if (!byVenue.has(k)) byVenue.set(k, []);
+  byVenue.get(k).push(e);
 }
 
 const crumbs = (items) => ({
@@ -223,7 +278,14 @@ for (const e of upcoming) {
     `<li><strong>Onde:</strong> ${esc([e.venue, e.address, e.city].filter(Boolean).join(', '))}</li>`,
     e.price || e.isFree ? `<li><strong>Preço:</strong> ${esc(e.price ?? 'Entrada gratuita')}</li>` : '',
   ].join('');
+  const sameVenue = (byVenue.get(`${e.city}|${e.venue}`) ?? []).filter((o) => o.id !== e.id).slice(0, 6);
+  const sameCat = cat ? (byCity.get(e.city) ?? []).filter((o) => o.id !== e.id && o.categories.includes(cat) && !sameVenue.includes(o)).slice(0, 6) : [];
+  const related = [
+    sameVenue.length ? `<section><h2>Mais eventos em ${esc(e.venue)}</h2><ul>${sameVenue.map((o) => eventLi(o, false)).join('')}</ul></section>` : '',
+    sameCat.length ? `<section><h2>Mais ${esc(CAT_SEO[cat].title.toLowerCase())} ${esc(inPlace(e.city))}</h2><ul>${sameCat.map((o) => eventLi(o, false)).join('')}</ul><p><a href="${catPath(e.city, cat)}">Ver toda a agenda de ${esc(CAT_SEO[cat].title.toLowerCase())} ${esc(inPlace(e.city))}</a></p></section>` : '',
+  ].join('');
   await page(eventPath(e), {
+    noindex: !hasText(e),
     title: `${e.title}, ${where} | Eventados`,
     description: `${e.title}: ${span(e)}${e.timesText ? `, ${e.timesText}` : ''}${e.venue ? `, ${e.venue}` : ''} ${inPlace(e.city)}. ${e.subtitle ?? e.description ?? ''}`,
     image: e.image || performers.find((a) => a.photo)?.photo || `${SITE}/og.jpg`,
@@ -231,7 +293,7 @@ for (const e of upcoming) {
     ld: [event, crumbs([['Eventados', '/'], [`Eventos ${inPlace(e.city)}`, cityPath(e.city)], ...(cat ? [[`${CAT_SEO[cat].title} ${inPlace(e.city)}`, catPath(e.city, cat)]] : []), [e.title, eventPath(e)]])],
     body: `<nav><a href="/">Eventados</a> › <a href="${cityPath(e.city)}">Eventos ${esc(inPlace(e.city))}</a>${cat ? ` › <a href="${catPath(e.city, cat)}">${esc(CAT_SEO[cat].title)}</a>` : ''}</nav>
 <article><h1>${esc(e.title)}</h1>${e.subtitle ? `<p>${esc(e.subtitle)}</p>` : ''}<ul>${facts}</ul>${e.description ? `<p>${esc(e.description)}</p>` : ''}
-<p><a href="${esc(e.url)}" rel="nofollow">Mais informação em ${esc(e.sourceName)}</a>${e.tickets && e.tickets !== e.url ? ` · <a href="${esc(e.tickets)}" rel="nofollow">Bilhetes</a>` : ''}</p></article>`,
+<p><a href="${esc(e.url)}" rel="nofollow">Mais informação em ${esc(e.sourceName)}</a>${e.tickets && e.tickets !== e.url ? ` · <a href="${esc(e.tickets)}" rel="nofollow">Bilhetes</a>` : ''}</p></article>${related}`,
   });
 }
 
@@ -241,26 +303,69 @@ for (const [city, all] of cities) {
   const cats = Object.keys(CAT_SEO).filter((c) => list.filter((e) => e.categories.includes(c)).length >= 3);
   const catNav = `<nav><h2>Por tipo de evento</h2><ul>${cats.map((c) => `<li><a href="${catPath(city, c)}">${esc(CAT_SEO[c].title)} ${esc(inPlace(city))}</a></li>`).join('')}</ul></nav>`;
   await page(cityPath(city), {
+    noindex: list.length < MIN_LIST,
     title: `Eventos ${inPlace(city)}`,
     description: `${list.length} eventos ${inPlace(city)}: concertos, teatro, stand-up, exposições, cinema e atividades para famílias.`,
     initial: { page: 'eventos', city },
     ld: [itemList(list), crumbs([['Eventados', '/'], ['Eventos', '/eventos/'], [`Eventos ${inPlace(city)}`, cityPath(city)]])],
     body: `<nav><a href="/">Eventados</a> › <a href="/eventos/">Eventos</a></nav><h1>Eventos ${esc(inPlace(city))}</h1>
-<p>${list.length} eventos ${esc(inPlace(city))} nos próximos ${DAYS_AHEAD} dias, recolhidos das agendas municipais e das salas de espetáculos.</p>${catNav}${listByDay(list.slice(0, 150), false)}${cityLinks(city)}`,
+<p>Nos próximos ${DAYS_AHEAD} dias há ${plural(list.length, 'evento', 'eventos')} ${esc(inPlace(city))}. ${summary(list, inPlace(city))}</p>${catNav}${listByDay(list.slice(0, 150), false)}${cityLinks(city)}`,
   });
   for (const cat of cats) {
     const cl = list.filter((e) => e.categories.includes(cat));
     const name = `${CAT_SEO[cat].title} ${inPlace(city)}`;
     await page(catPath(city, cat), {
+      noindex: cl.length < MIN_LIST,
       title: `${name}: agenda dos próximos dias | Eventados`,
       description: `${cl.length} eventos de ${CAT_SEO[cat].title.toLowerCase()} ${inPlace(city)}, com datas, horários, locais e preços. Agenda atualizada todos os dias.`,
       initial: { page: 'eventos', city, cats: [cat] },
       ld: [itemList(cl), crumbs([['Eventados', '/'], [`Eventos ${inPlace(city)}`, cityPath(city)], [name, catPath(city, cat)]])],
       body: `<nav><a href="/">Eventados</a> › <a href="${cityPath(city)}">Eventos ${esc(inPlace(city))}</a></nav><h1>${esc(name)}</h1>
-<p>${cl.length} eventos nos próximos ${DAYS_AHEAD} dias.</p>${listByDay(cl.slice(0, 150), false)}${catNav}`,
+<p>Nos próximos ${DAYS_AHEAD} dias há ${plural(cl.length, 'evento', 'eventos')} de ${esc(CAT_SEO[cat].title.toLowerCase())} ${esc(inPlace(city))}. ${summary(cl, inPlace(city), { withCats: false })}</p>${listByDay(cl.slice(0, 150), false)}${catNav}`,
     });
   }
 }
+
+// Sobre e Contacto em HTML (na app são um ecrã e um formulário em React, que o Google não vê bem).
+const SRC_GROUPS = [
+  ['agenda', 'Agendas municipais'],
+  ['venue', 'Salas de espetáculos'],
+  ['regional', 'Turismo regional'],
+  ['agency', 'Agências e promotoras'],
+];
+const venueCount = new Set(data.events.map((e) => e.venue && `${e.city}|${e.venue}`).filter(Boolean)).size;
+await page('/sobre/', {
+  title: 'Sobre o Eventados | Agenda cultural de Portugal',
+  description: `O Eventados junta num só sítio a agenda cultural de ${cities.length} concelhos de Portugal, a partir de ${data.sources.length} agendas municipais e salas de espetáculos.`,
+  initial: { page: 'sobre' },
+  ld: [crumbs([['Eventados', '/'], ['Sobre', '/sobre/']])],
+  body: `<nav><a href="/">Eventados</a></nav><article><h1>Sobre o Eventados</h1>
+<p>O Eventados junta numa só agenda os eventos publicados pelas câmaras municipais, pelos teatros e salas de espetáculos, pelas entidades de turismo e pelas promotoras de Portugal. Em vez de visitar dezenas de sites, encontras aqui o que está a acontecer perto de ti, organizado por concelho, por tipo e por dia, e cada evento leva sempre à página oficial.</p>
+<p>Neste momento acompanhamos ${plural(data.sources.length, 'fonte', 'fontes')}, com ${plural(upcoming.length, 'evento', 'eventos')} nos próximos meses em ${plural(cities.length, 'concelho', 'concelhos')} e ${plural(venueCount, 'sala ou espaço', 'salas e espaços')}.</p>
+<h2>Como funciona</h2>
+<p>Todas as madrugadas um programa recolhe as agendas, respeitando o que cada site permite. Os eventos repetidos em várias fontes são juntados num só, cada um é colocado no concelho certo a partir da localização da sala, e é classificado por tipo: concertos, teatro, dança, stand-up, cinema, exposições, atividades para famílias e outros.</p>
+<p>Os destaques são escolhidos com regras iguais para todos: a dimensão da sala, se é um espetáculo ao vivo, um festival ou uma digressão, e se o evento aparece em várias agendas. Nenhum evento paga para aparecer.</p>
+<h2>O que acrescentamos</h2>
+<ul><li>Uma só pesquisa para todo o país, com filtros por concelho, tipo, data e preço.</li><li>Mapa com os eventos perto de ti.</li><li>Páginas de artistas com todas as datas da digressão.</li><li>Lista pessoal de eventos guardados e lembretes.</li></ul>
+<h2>Fontes</h2>
+${SRC_GROUPS.map(([kind, title]) => {
+  const list = data.sources.filter((s) => (s.kind ?? 'agenda') === kind);
+  return list.length ? `<h3>${esc(title)}</h3><ul>${list.map((s) => `<li><a href="${esc(s.url)}" rel="nofollow">${esc(s.name)}</a> (${plural(s.count ?? 0, 'evento', 'eventos')})</li>`).join('')}</ul>` : '';
+}).join('')}
+<h2>Avisos</h2>
+<p>Os eventos pertencem às respetivas entidades organizadoras. Horários, preços e disponibilidade podem mudar: confirma sempre os detalhes no site de origem antes de sair de casa. Encontraste um erro ou queres sugerir uma agenda? <a href="/contacto/">Fala connosco</a>.</p></article>`,
+});
+await page('/contacto/', {
+  title: 'Contacto | Eventados',
+  description: 'Fala com a equipa do Eventados: corrige um evento, sugere uma agenda ou uma sala, ou pede que um evento seja retirado.',
+  initial: { page: 'sobre' },
+  ld: [crumbs([['Eventados', '/'], ['Contacto', '/contacto/']])],
+  body: `<nav><a href="/">Eventados</a></nav><article><h1>Contacto</h1>
+<p>Usa o formulário de contacto que está no rodapé de todas as páginas do Eventados (botão «Contacto»). Respondemos normalmente em poucos dias.</p>
+<h2>Podes escrever-nos para</h2>
+<ul><li>Corrigir a data, o local, o preço ou o tipo de um evento.</li><li>Sugerir uma agenda municipal, uma sala ou uma promotora que ainda não acompanhamos.</li><li>Pedir que um evento ou uma fonte seja retirado.</li><li>Parcerias e publicidade.</li></ul>
+<p>Se és organizador, a forma mais rápida de aparecer no Eventados é publicar o evento na agenda da tua câmara municipal ou no site da sala: recolhemos essas agendas todos os dias.</p></article>`,
+});
 
 // 4) índice de cidades
 await page('/eventos/', {
@@ -277,12 +382,23 @@ const homeHtml = template.replace(
   `<main class="ssr"><h1>Agenda de eventos em Portugal</h1><p>Concertos, teatro, stand-up, exposições e muito mais, por cidade e por dia.</p>${cityLinks('')}<h2>Próximos eventos</h2><ul>${soon
     .slice(0, 40)
     .map((e) => eventLi(e, true))
-    .join('')}</ul></main>`,
+    .join('')}</ul>${ssrFooter}</main>`,
 ).replace('<!--initial-->', '');
 await writeFile(new URL('index.html', DIST), homeHtml);
 written.unshift('/');
 
-// 6) sitemap e robots
+// 6) página 404 estática com o mesmo layout para evitar erros 5xx/Varnish no GitHub Pages
+const notFoundHtml = template
+  .replace(/<!--seo:start-->[\s\S]*?<!--seo:end-->/, [
+    `<title>Página não encontrada | Eventados</title>`,
+    `<meta name="robots" content="noindex, follow" />`,
+    `<link rel="canonical" href="${SITE}/" />`,
+  ].join('\n    '))
+  .replace('<!--ssr-->', `<main class="ssr"><h1>Página não encontrada</h1><p>O evento ou página que procuras já não está disponível ou mudou de endereço.</p><p><a href="/">Voltar à página inicial</a> · <a href="/eventos/">Ver eventos por concelho</a></p></main>`)
+  .replace('<!--initial-->', '');
+await writeFile(new URL('404.html', DIST), notFoundHtml);
+
+// 7) sitemap e robots
 const lastmod = data.updatedAt.slice(0, 10);
 await writeFile(
   new URL('sitemap.xml', DIST),

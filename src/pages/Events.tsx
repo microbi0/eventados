@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react';
 import { CalendarDays, Search, SlidersHorizontal, X } from 'lucide-react';
 import type { EventItem, EventsData } from '../types';
 import { DATE_RANGES, type DateRange, formatDay } from '../dates';
-import { ALL, filterEvents } from '../filters';
+import { ALL, filterEvents, parseSearchQuery } from '../filters';
 import { CategoryChip, CategoryRow, EventCard } from '../ui';
 import { styleOf } from '../categories';
 import { EventAdCard } from '../ads';
@@ -32,6 +32,7 @@ export default function Events({ data, city, selected, onSelect, sidebar, range,
   useEffect(() => setLimit(PAGE), [city, cats, range, query]);
 
   // Antes do filtro de tipo (para as contagens por tipo).
+  const parsedQuery = useMemo(() => parseSearchQuery(query), [query]);
   const inScope = useMemo(() => filterEvents(data.events, { city, range, query }), [data, city, range, query]);
   const results = useMemo(() => (cats.length ? inScope.filter(({ e }) => e.categories.some((c) => cats.includes(c))) : inScope), [inScope, cats]);
   const counts = useMemo(() => {
@@ -103,7 +104,18 @@ export default function Events({ data, city, selected, onSelect, sidebar, range,
       <main className="list-col">
         <section className="hero">
           <div className="when-bar">
-            <div className={query.trim() ? 'segmented dim' : 'segmented'} role="tablist" aria-label="Quando" title={query.trim() ? 'A pesquisa procura em todas as datas' : undefined}>
+            <div
+              className={query.trim() ? 'segmented dim' : 'segmented'}
+              role="tablist"
+              aria-label="Quando"
+              title={
+                parsedQuery.dateLabel
+                  ? `A pesquisa filtra por ${parsedQuery.dateLabel}`
+                  : query.trim()
+                    ? 'A pesquisa procura em todas as datas'
+                    : undefined
+              }
+            >
               {DATE_RANGES.map((r) => (
                 <button key={r.id} role="tab" aria-selected={range === r.id} className={range === r.id ? 'on' : ''} onClick={() => setRange(r.id)}>
                   {r.label}
@@ -124,7 +136,7 @@ export default function Events({ data, city, selected, onSelect, sidebar, range,
           <p className="summary">
             <SlidersHorizontal size={15} />
             {results.length} {results.length === 1 ? 'evento' : 'eventos'}
-            {query.trim() && <span className="summary-cat">em todas as datas</span>}
+            {query.trim() && <span className="summary-cat">{parsedQuery.dateLabel ?? 'em todas as datas'}</span>}
             {cats.map((c) => {
               const I = styleOf(c).icon;
               return (

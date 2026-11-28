@@ -1,6 +1,6 @@
 import type { EventItem } from './types';
 import { inArea } from './places';
-import { type DateRange, durationDays, firstOccurrence, rangeBounds, startMinutes } from './dates';
+import { type DateRange, durationDays, firstOccurrence, parseDateFromQuery, rangeBounds, startMinutes } from './dates';
 
 export const ALL = 'all';
 
@@ -42,6 +42,33 @@ function haystack(e: EventItem): string {
   return t;
 }
 
+const QUERY_STOPWORDS = new Set([
+  'evento', 'eventos', 'espetaculo', 'espetaculos',
+  'em', 'no', 'na', 'nos', 'nas', 'de', 'do', 'da', 'dos', 'das',
+  'para', 'por', 'com', 'a', 'as', 'o', 'os', 'e', 'entre', 'ate',
+]);
+
+export interface ParsedQuery {
+  text: string;
+  dateBounds: [string, string] | null;
+  dateLabel: string | null;
+}
+
+export function parseSearchQuery(rawQuery: string, now = new Date()): ParsedQuery {
+  const normalized = normalize(rawQuery.trim());
+  if (!normalized) return { text: '', dateBounds: null, dateLabel: null };
+  const dateMatch = parseDateFromQuery(normalized, now);
+  const rest = dateMatch ? dateMatch.rest : normalized;
+  const words = rest.split(/\s+/).filter(Boolean);
+  const meaningful = words.filter((w) => !QUERY_STOPWORDS.has(w));
+  const text = dateMatch || meaningful.length > 0 ? meaningful.join(' ') : words.join(' ');
+  return {
+    text,
+    dateBounds: dateMatch ? dateMatch.bounds : null,
+    dateLabel: dateMatch ? dateMatch.label : null,
+  };
+}
+
 // Todas as palavras da pesquisa têm de aparecer (em qualquer ordem, sem acentos).
 export const matchesQuery = (e: EventItem, q: string) => {
   const words = q.split(/\s+/).filter(Boolean);
@@ -50,16 +77,16 @@ export const matchesQuery = (e: EventItem, q: string) => {
 };
 
 // Eventos que passam os filtros, com a data em que acontecem dentro do período, ordenados.
-// Com pesquisa escrita, procura em todas as datas futuras (quem procura um artista quer ver todas as datas).
+// Com pesquisa escrita, procura em todas as datas futuras, exceto quando a pesquisa inclui uma data.
 export function filterEvents(events: EventItem[], f: Filters): Hit[] {
-  const q = normalize((f.query ?? '').trim());
-  const [from, to] = rangeBounds(q ? 'all' : f.range);
+  const parsed = parseSearchQuery(f.query ?? '');
+  const [from, to] = parsed.dateBounds ?? rangeBounds(parsed.text ? 'all' : f.range);
   const out: Hit[] = [];
   for (const e of events) {
     if (!inArea(e, f.city)) continue;
     if (f.freeOnly && !e.isFree) continue;
     if (f.categories?.length && !e.categories.some((c) => f.categories!.includes(c))) continue;
-    if (q && !matchesQuery(e, q)) continue;
+    if (parsed.text && !matchesQuery(e, parsed.text)) continue;
     const when = firstOccurrence(e, from, to);
     if (when) out.push({ e, when });
   }
